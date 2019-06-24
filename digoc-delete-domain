@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# get your key at https://cloud.digitalocean.com/account/api/tokens
+#
+# then
+#   export DIGOCTOK=...
+# then
+#
+#
+DOMAIN=$1
+if [ -z "$DOMAIN" ]; then
+  echo usage: DIGOCTOK="..." $0 domain.name
+  exit 1
+fi
+echo -n BEFORE:
+curl -s -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $DIGOCTOK" "https://api.digitalocean.com/v2/domains/$DOMAIN/records" | jq
+
+echo
+curl -s -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $DIGOCTOK" "https://api.digitalocean.com/v2/domains/$DOM" | jq
+
+
+echo
+echo -n AFTER:
+
+echo
+curl -s -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $DIGOCTOK" "https://api.digitalocean.com/v2/domains/$DOMAIN/records" | jq

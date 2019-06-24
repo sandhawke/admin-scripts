@@ -1,0 +1,28 @@
+#!/bin/bash
+#
+# get your key at https://cloud.digitalocean.com/account/api/tokens
+#
+# then
+#   export DIGOCTOK=...
+# then
+#   digoc-reset-ip domain ip
+#
+#
+IP=$2
+DOMAIN=$1
+if [ -z "$IP" -o -z "$DOMAIN" ]; then
+  echo usage: DIGOCTOK="..." $0 domain.name x.x.x.x
+  exit 1
+fi
+echo -n BEFORE:
+curl -s -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $DIGOCTOK" "https://api.digitalocean.com/v2/domains/$DOMAIN/records" | jq
+
+echo
+curl -s -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $DIGOCTOK" -d '{"name":"'$DOMAIN'","ip_address":"'$IP'"}' "https://api.digitalocean.com/v2/domains" | jq
+
+
+echo
+echo -n AFTER:
+
+echo
+curl -s -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $DIGOCTOK" "https://api.digitalocean.com/v2/domains/$DOMAIN/records" | jq
