@@ -1,0 +1,6 @@
+*~
+OLD
+.nyc*
+node_modules
+out-*
+_*
