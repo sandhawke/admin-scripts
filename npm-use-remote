@@ -1,0 +1,17 @@
+#!/bin/sh
+repos=$HOME/Repos
+if [ ! -f package.json ]; then
+    echo Only use this in a directory with a package.json
+    exit 1
+fi
+if [ ! -d .git ]; then
+    echo Only use this in a directory with .git
+    exit 1
+fi
+if [ -L $repos/node_modules ]; then
+    rm $repos/node_modules
+    echo "removed link $repos/node_modules -> ."
+fi
+echo "just doing: npm i"
+npm i
+

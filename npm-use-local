@@ -1,0 +1,20 @@
+#!/bin/sh
+repos=$HOME/Repos
+if [ ! -f package.json ]; then
+  echo Only use this in a directory with a package.json
+  exit 1
+fi
+if [ ! -d .git ]; then
+  echo Only use this in a directory with .git
+  exit 1
+fi
+for x in node_modules/*; do
+  module=$(basename $x)
+  if [ -d $repos/$module ]; then
+    echo doing rm $x 
+    rm -rf $x
+  fi
+done
+if [ ! -L $repos/node_modules ]; then
+  ln -s . $repos/node_modules
+fi

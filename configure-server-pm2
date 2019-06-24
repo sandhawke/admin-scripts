@@ -1,0 +1,18 @@
+#!/bin/sh
+
+TARGET=$1
+
+if [ "$TARGET" = "" ]; then
+    echo Usage: $0 HOSTNAME
+    exit 1
+fi
+
+scp ~/bin/set-me-up-pm2.sh @$TARGET:
+ssh $TARGET "export HOST=$TARGET; sh set-me-up-pm2.sh" 
+echo
+echo CONSIDER:
+echo 
+echo opn https://$TARGET
+echo configure-server-app $TARGET PORT PATH
+echo
+

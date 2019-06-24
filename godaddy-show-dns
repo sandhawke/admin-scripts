@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+# get your key at https://developer.godaddy.com/keys/
+#
+# then
+#   export KEY="key:secret"
+#   (the key part is what shows up under Production, the secret part
+#   you have to know from when you created it)
+# then
+#   goaddy-add-mailgun DOMAIN STRING-STARTING-k=rsa;p=...
+#
+#
+DOMAIN=$1
+if [ -z "$DOMAIN" ]; then
+  echo usage: KEY="key:secret" $0 domain
+  exit 1
+fi
+
+dig +noquestion +nocmd +nostats +nocomments ftp.$DOMAIN any
+dig +noquestion +nocmd +nostats +nocomments www.$DOMAIN any
+dig +noquestion +nocmd +nostats +nocomments email.$DOMAIN any
+dig +noquestion +nocmd +nostats +nocomments mx._domainkey.$DOMAIN TXT
+dig +noquestion +nocmd +nostats +nocomments $DOMAIN any
+
+#curl -s -X GET -H "Authorization: sso-key $KEY" "https://api.godaddy.com/v1/domains/$DOMAIN/records/A/%40"
+
+curl -s -X GET -H "Authorization: sso-key $KEY" "https://api.godaddy.com/v1/domains/$DOMAIN/records" | jq

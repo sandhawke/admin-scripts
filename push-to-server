@@ -1,0 +1,52 @@
+
+while true; do
+    if [ -f .push-to-server ]; then
+        source .push-to-server
+        echo Pushing to $TARGET from $PWD
+
+        if [ "$BUILD" != "" ]; then
+            eval "$BUILD" || exit 1
+        fi
+
+        if [ "$SITEURL" = "" ]; then
+            SITEURL=https://$TARGET$LOCATION
+        fi
+        
+        if [ "$PORT" = "" ]; then
+            rsync -avR . --exclude=node_modules "--exclude=.*" --exclude=OLD root@$TARGET:/sites/$TARGET
+        else
+            rsync -avR . --exclude=node_modules "--exclude=.*" --exclude=OLD root@$TARGET:/live-sites/$PORT || exit 1
+            ssh $TARGET "cd /live-sites/$PORT && npm i" || exit 1
+            echo
+            echo "Consider"
+            echo
+            echo ssh $TARGET "'cd /live-sites/$PORT; export PORT=$PORT SITEURL=$SITEURL pm2 start server.js'"
+        fi
+        firefox --new-window $SITEURL
+
+        exit 0
+    fi
+    echo "push-to-server: missing config in $PWD"
+    if [ "$PWD" = "/" ]; then
+cat <<EOF
+
+Create your .push-to-server file with:
+
+cat > .push-to-server <<_END
+# These are shell variables for push-to-server
+
+# Hostname to push to
+TARGET=example.com
+
+# If these files are for a live-site, which port will they run on?
+# PORT=3000
+
+# If live-site, Where should nginx expose this port? (like /foo/)
+LOCATION=/
+_END
+
+EOF
+        exit 1
+    fi
+    cd ..
+done

@@ -1,0 +1,9 @@
+#!/bin/sh
+#   run something in your current node_modules/.bin
+#   details from http://stackoverflow.com/questions/10929282/get-exact-quoted-string-parameters-in-bash
+#   thanks http://stackoverflow.com/users/26428/dennis-williamson
+bin=`npm bin`
+PATH=$bin:$PATH
+"$@"
+result=$?
+exit $result

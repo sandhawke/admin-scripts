@@ -1,0 +1,102 @@
+#!/bin/sh
+
+cd /home/sandro/Repos
+
+echo -n 'Name: '
+read name
+
+mkdir $name || exit
+
+cd $name
+
+if [ $PWD != /home/sandro/Repos/$name ]; then
+    echo PWD seems wrong: $PWD
+    exit
+fi    
+
+echo -n 'Description: '
+read desc
+
+# name=`basename $PWD`
+
+git init
+
+# cp ../LICENSE.txt .
+# git add LICENSE.txt
+
+cp ../.gitignore .
+git add .gitignore
+
+cat <<_END >> README.md
+# $name
+[![NPM version][npm-image]][npm-url]
+
+$desc
+
+[npm-image]: https://img.shields.io/npm/v/$name.svg?style=flat-square
+[npm-url]: https://npmjs.org/package/$name
+_END
+git add README.md
+
+cat <<_END >> package.json
+{
+  "name": "$name",
+  "version": "0.0.0",
+  "description": "$desc",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx standard && npx tap --cov test*.js test/*.js",
+    "tap": "npx tap --cov test*.js test/*.js",
+    "coveralls": "export COVERALLS_REPO_TOKEN=$(cat $HOME/.coveralls-tokens/$npm_package_name); npx tap --cov test*.js test/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sandhawke/$name.git"
+  },
+  "keywords": [
+    "sandhawke"
+  ],
+  "author": "Sandro Hawke (http://hawke.org/sandro)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sandhawke/$name/issues"
+  },
+  "homepage": "https://github.com/sandhawke/$name#readme",
+  "devDependencies": {
+    "tape": "^4.9.1"
+  },
+  "dependencies": {
+    "debug": "^4.1.0"
+  }
+}
+_END
+
+cat <<EOF >> test.js
+const test = require('tape')
+const my = require('.')
+
+test(async (t) => {
+  t.equal(await my.f(), 'expected output')
+  t.end()           
+})
+EOF
+
+git commit -m'default init files'
+git remote add origin git@github.com:sandhawke/$name.git
+
+# dont need npm init any more!
+npm i
+
+# use gh api to create it?
+xdg-open https://github.com/new
+
+cat <<EOF
+# Name:
+$name
+# Description
+$desc
+# Try
+cd $PWD; git push -u origin master
+npm docs
+
+EOF

@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# use like
+#
+# LOCATION=/v2.1/ PORT=3002 TARGET=example.com configure-server-app
+#
+
+if [ "$TARGET" = "" ]; then
+    TARGET=$1
+fi
+
+if [ "$TARGET" = "" ]; then
+    echo Usage: $0 HOSTNAME
+    exit 1
+fi
+
+if [ "$LOCATION" = "" ]; then
+    echo 'LOCATION must be defined like "/" or "/alpha/"'
+    exit 1
+fi
+
+if [ "$PORT" = "" ]; then
+    echo PORT must be defined
+    exit 1
+fi
+
+# keep the mkdirs separate so we get the error report
+if ssh root@$TARGET "mkdir -p /proxy_pass; mkdir /proxy_pass/$PORT"; then
+
+    ssh root@$TARGET "sed -i.$(date -Id) '/NEW LINES HERE/a location $LOCATION { proxy_pass http://127.0.0.1:$PORT/; }' /etc/nginx/sites-available/$TARGET && nginx -t && sudo service nginx reload"
+
+    echo
+    echo CONSIDER:
+    echo 
+    echo "push-to-server
+    echo
+    
+else
+    echo $TARGET:/proxy_pass/$PORT already exists
+fi
+

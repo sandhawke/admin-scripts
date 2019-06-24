@@ -1,0 +1,21 @@
+#!/bin/bash
+#
+# get your key athttps://developer.godaddy.com/keys/
+#
+# then
+#   export KEY="key:secret"
+# then
+#   ...
+# then probably remove it from the keys...
+#
+#
+DOMAIN=$1
+if [ -z "$KEY" -o -z "$DOMAIN" ]; then
+  echo usage: KEY="key:secret" $0 some.host.name
+  exit 1
+fi
+
+curl -s -X GET -o /tmp/gsntc-before.json -H "Authorization: sso-key $KEY" "https://api.godaddy.com/v1/domains/$DOMAIN"
+node -e 'const b = require("/tmp/gsntc-before.json"); console.log(b.nameServers)'
+echo
+

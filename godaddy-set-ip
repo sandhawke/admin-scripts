@@ -1,0 +1,31 @@
+#!/bin/bash
+#
+# get your key at https://developer.godaddy.com/keys/
+#
+# then
+#   export KEY="key:secret"
+#   (the key part is what shows up under Production, the secret part
+#   you have to know from when you created it)
+# then
+#   goaddy-set-ip hostname ip
+#
+#
+IP=$2
+DOMAIN=$1
+if [ -z "$IP" -o -z "$DOMAIN" ]; then
+  echo usage: KEY="key:secret" $0 some.host.name x.x.x.x
+  exit 1
+fi
+echo -n BEFORE:
+curl -s -X GET -H "Authorization: sso-key $KEY" "https://api.godaddy.com/v1/domains/$DOMAIN/records/A/%40"
+echo
+
+curl -X PUT -k -H "Content-Type: application/json" \
+   -H "Authorization: sso-key $KEY" \
+   --data '{ "type": "A", "name": "@", "ttl": 600, "data": "'$IP'" }' \
+   "https://api.godaddy.com/v1/domains/$DOMAIN/records/A/%40"
+
+echo
+echo -n AFTER:
+curl -s -X GET -H "Authorization: sso-key $KEY" "https://api.godaddy.com/v1/domains/$DOMAIN/records/A/%40"
+echo

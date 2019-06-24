@@ -1,0 +1,11 @@
+EVENTS="CREATE,CLOSE_WRITE,DELETE,MODIFY,MOVED_FROM,MOVED_TO"
+
+while true; do
+    push-to-server || exit 1
+    echo waiting for files to change
+    inotifywait -q -r -e $EVENTS --exclude=node_modules --exclude=events.log --exclude=*~ --exclude=.??* --exclude='.#' .
+done
+      
+# bug? or I'm just confused.  For some reason when I excude '.#*' the
+# excludes everything, but excluding .# is enough avoid the emacs lock
+# file problem. Maybe I misunderstand how to write exclude patterns.
