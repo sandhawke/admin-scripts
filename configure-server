@@ -1,6 +1,8 @@
 #!/bin/sh
 
-TARGET=$1
+if [ "$TARGET" = "" ]; then
+    TARGET=$1
+fi
 
 if [ "$TARGET" = "" ]; then
     echo Usage: $0 HOSTNAME
@@ -11,14 +13,15 @@ fi
 #
 # for now, we only set up generic https nginx servers
 
-scp ~/bin/set-me-up.sh ~/bin/set-me-up.nginx root@$TARGET:
-ssh root@$TARGET "export HOST=$TARGET; export EMAIL=sandro@hawke.org; sh set-me-up.sh" 
+cd $(dirname $0) || exit 1
+scp set-me-up.sh set-me-up.nginx root@$TARGET: || exit 1
+ssh root@$TARGET "export HOST=$TARGET; export EMAIL=sandro@hawke.org; sh set-me-up.sh" || exit 1
 curl https://$TARGET
 echo
 echo CONSIDER:
 echo 
-echo opn https://$TARGET
-echo configure-server-pm2 $TARGET
-echo push-to-server $TARGET
-echo push-to-server-pm2 $TARGET $PORT $PATH
+echo "opn https://$TARGET"
+echo "configure-server-pm2 $TARGET      # for node.js + pm2"
+echo "configure-server-app $TARGET      # tell nginx to proxy"
+echo push-to-server
 echo

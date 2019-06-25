@@ -10,15 +10,17 @@ if [ "$TARGET" = "" ]; then
 fi
 
 if [ "$TARGET" = "" ]; then
-    echo Usage: $0 HOSTNAME
+    echo Usage: LOCATION=/ PORT=3000 $0 HOSTNAME
     exit 1
 fi
 
+# maybe default to /
 if [ "$LOCATION" = "" ]; then
     echo 'LOCATION must be defined like "/" or "/alpha/"'
     exit 1
 fi
 
+# maybe default to 3000
 if [ "$PORT" = "" ]; then
     echo PORT must be defined
     exit 1
@@ -32,10 +34,10 @@ if ssh root@$TARGET "mkdir -p /proxy_pass; mkdir /proxy_pass/$PORT"; then
     echo
     echo CONSIDER:
     echo 
-    echo "push-to-server
+    echo push-to-server
     echo
     
 else
-    echo $TARGET:/proxy_pass/$PORT already exists
+    echo "$TARGET:/proxy_pass/$PORT already exists"
 fi
 

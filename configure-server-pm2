@@ -1,14 +1,17 @@
 #!/bin/sh
 
-TARGET=$1
+if [ "$TARGET" = "" ]; then
+    TARGET=$1
+fi
 
 if [ "$TARGET" = "" ]; then
     echo Usage: $0 HOSTNAME
     exit 1
 fi
 
-scp ~/bin/set-me-up-pm2.sh @$TARGET:
-ssh $TARGET "export HOST=$TARGET; sh set-me-up-pm2.sh" 
+cd $(dirname $0) || exit 1
+scp set-me-up-pm2.sh @$TARGET: || exit 1
+ssh $TARGET "export HOST=$TARGET; sh set-me-up-pm2.sh"  || exit 1
 echo
 echo CONSIDER:
 echo 

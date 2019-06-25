@@ -11,16 +11,23 @@ while true; do
         if [ "$SITEURL" = "" ]; then
             SITEURL=https://$TARGET$LOCATION
         fi
-        
+
+        N=--exclude=node_modules
         if [ "$PORT" = "" ]; then
-            rsync -avR . --exclude=node_modules "--exclude=.*" --exclude=OLD root@$TARGET:/sites/$TARGET
+            echo Pushing to /sites
+            rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/sites/$TARGET
         else
-            rsync -avR . --exclude=node_modules "--exclude=.*" --exclude=OLD root@$TARGET:/live-sites/$PORT || exit 1
-            ssh $TARGET "cd /live-sites/$PORT && npm i" || exit 1
+            echo Pushing to /proxy_pass
+            rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/proxy_pass/$PORT || exit 1
+            # This nvm thing is a mess, I'm confused how to do it right
+            ssh $TARGET "PATH=/home/sandro/.nvm/versions/node/v10.16.0/bin:$PATH; cd /proxy_pass/$PORT && npm i" || exit 1
             echo
             echo "Consider"
             echo
-            echo ssh $TARGET "'cd /live-sites/$PORT; export PORT=$PORT SITEURL=$SITEURL pm2 start server.js'"
+            echo ssh $TARGET
+            echo "cd /proxy_pass/$PORT ; export PORT=$PORT ; export SITEURL=$SITEURL"
+            echo "node run.sh"
+            echo "pm2 start run.js"
         fi
         firefox --new-window $SITEURL
 

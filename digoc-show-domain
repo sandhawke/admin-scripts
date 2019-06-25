@@ -5,6 +5,7 @@
 # then
 #   export DIGOCTOK=...
 # then
+#   digoc-reset-ip domain
 #
 #
 DOMAIN=$1
@@ -12,15 +13,6 @@ if [ -z "$DOMAIN" ]; then
   echo usage: DIGOCTOK="..." $0 domain.name
   exit 1
 fi
-echo -n BEFORE:
+
 curl -s -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $DIGOCTOK" "https://api.digitalocean.com/v2/domains/$DOMAIN/records" | jq
 
-echo
-curl -s -X DELETE -H "Content-Type: application/json" -H "Authorization: Bearer $DIGOCTOK" "https://api.digitalocean.com/v2/domains/$DOMAIN" | jq
-
-
-echo
-echo -n AFTER:
-
-echo
-curl -s -X GET -H "Content-Type: application/json" -H "Authorization: Bearer $DIGOCTOK" "https://api.digitalocean.com/v2/domains/$DOMAIN/records" | jq
