@@ -1,5 +1,13 @@
 #!/bin/sh
 
+# where can we pull this from?  It's needed for letsencrypt
+EMAIL=sandro@hawke.org
+
+#
+# Should be okay to run multiple times, and with shared servers, once
+# for each name
+#
+
 if [ "$TARGET" = "" ]; then
     TARGET=$1
 fi
@@ -9,13 +17,15 @@ if [ "$TARGET" = "" ]; then
     exit 1
 fi
 
+USER=$LOGNAME
+
 # maybe send different files to different types of hosts?
 #
 # for now, we only set up generic https nginx servers
 
 cd $(dirname $0) || exit 1
 scp set-me-up.sh set-me-up.nginx root@$TARGET: || exit 1
-ssh root@$TARGET "export HOST=$TARGET; export EMAIL=sandro@hawke.org; sh set-me-up.sh" || exit 1
+ssh root@$TARGET "export HOST=$TARGET EMAIL=$EMAIL USER=$USER; sh set-me-up.sh" || exit 1
 curl https://$TARGET
 echo
 echo CONSIDER:

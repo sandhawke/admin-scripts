@@ -19,8 +19,8 @@ while true; do
         else
             echo Pushing to /proxy_pass
             rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/proxy_pass/$PORT || exit 1
-            # This nvm thing is a mess, I'm confused how to do it right
-            ssh $TARGET "PATH=/home/sandro/.nvm/versions/node/v10.16.0/bin:$PATH; cd /proxy_pass/$PORT && npm i" || exit 1
+            # the -t is needed for nvm to find npm & node
+            ssh -t $TARGET "cd /proxy_pass/$PORT && npm i" || exit 1
             echo
             echo "Consider"
             echo
@@ -29,6 +29,11 @@ while true; do
             echo "node run.sh"
             echo "pm2 start run.js"
         fi
+
+        if [ "$AFTER" != "" ]; then
+            eval "$AFTER" || exit 1
+        fi
+
         firefox --new-window $SITEURL
 
         exit 0

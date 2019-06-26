@@ -47,13 +47,18 @@ ln -s /etc/nginx/sites-available/$HOST /etc/nginx/sites-enabled/$HOST
 nginx -t || exit 1
 service nginx restart && echo 'nginx restarted'
 
-adduser --disabled-password --gecos 'Sandro Hawke' sandro
-mkdir -p ~sandro/.ssh
-cp /root/.ssh/authorized_keys ~sandro/.ssh/authorized_keys
-cd ~sandro
-chown -R sandro .ssh
-chmod 700 .ssh
-chmod 600 .ssh/authorized_keys
-apt-get install sudo
-echo 'sandro ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/sandro
+# I guess we should take a user name parameter, too  :-)
+if grep $USER /etc/passwd; then
+    echo "$USER already in /etc/passwd"
+else
+    adduser --disabled-password --gecos "$USER admin" $USER || exit 1
+    mkdir -p ~$USER/.ssh || exit 1
+    cp /root/.ssh/authorized_keys ~$USER/.ssh/authorized_keys || exit 1
+    cd ~$USER || exit 1
+    chown -R $USER .ssh
+    chmod 700 .ssh
+    chmod 600 .ssh/authorized_keys
+    apt-get install sudo || exit 1
+    echo "$USER ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USER
+fi
 
