@@ -6,8 +6,7 @@ fi
 
 while true; do
     if [ -f .push-to-server ]; then
-        node -e 'v=require(`./package`).version; console.log(`PORT=3${v.replace(/\./g, "")}\nVERSION=v${v}`)' > .version-as-vars
-        source .version-as-vars
+        eval "$(node -e 'x=``; v=require(`./package`).version; console.log(`PORT=3${v.replace(/\./g, x)}\nVERSION=v${v}`)')"
         LOCATION=/$VERSION/
 
         if $PROD; then
