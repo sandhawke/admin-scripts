@@ -1,6 +1,7 @@
 #!/bin/bash
 
-echo -e '\n\n\n\n\n\n\n\n\n'
+echo -e '\n\n\n\n'
+clear
 
 cd ~/Repos
 
@@ -9,36 +10,36 @@ cd ~/Repos
 # headless-gdoc
 # tagwatch 
 # tree-of-trust 
+# flextag-crypto \
 
 
-for x in  \
-admin-scripts \
-appmgr \
-current-time-website \
-emerj-spa \
-flextag \
-flextag-crypto \
-flextag-mapper \
-flextag-mapper-cli \
-flextag-parser \
-flextag-protocol \
-flextag-spec \
-flextag.org \
-flextagger \
-live-source \
-live-source-gdoc \
-live-source-proxy \
-square-quotes \
-tagdb 
+for x in \
+    appmgr \
+        current-time-website \
+        flextag-mapper \
+        flextag-parser \
+        flextag-protocol \
+        live-source \
+        live-source-gdoc \
+        live-source-meta \
+        live-source-proxy \
+        square-quotes \
+        emerj-spa \
+        flextag \
+        flextag-mapper-cli \
+        flextag-spec \
+        flextag.org \
+        flextagger \
+        tagdb \
+        admin-scripts \
 
 do
 echo
 echo "$(tput setaf 0)$(tput sgr 7)$(tput bold) $x $(tput sgr0)"
-echo
 git -C $x diff-index --quiet HEAD -- || echo uncommited changes in $x
 git -C $x status -s || echo uncommited changes in $x  
 # git -C $x log --since=3.days.ago --pretty=oneline
-git -C $x log -n 5 --oneline
+git -C $x log -n 1 --oneline
 # from https://ma.ttias.be/pretty-git-log-in-one-line/
 # git -C $x log --since=5.days.ago --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit
 

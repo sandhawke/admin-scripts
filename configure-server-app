@@ -38,6 +38,6 @@ if ssh root@$TARGET "mkdir -p /proxy_pass; mkdir /proxy_pass/$PORT"; then
     echo
     
 else
-    echo "$TARGET:/proxy_pass/$PORT already exists"
+    echo "$TARGET:/proxy_pass/$PORT already exists; not touching nginx"
 fi
 

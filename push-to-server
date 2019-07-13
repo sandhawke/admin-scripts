@@ -1,7 +1,22 @@
+if [ "$1" = "prod" ]; then
+    PROD=true
+else
+    PROD=false
+fi
 
 while true; do
     if [ -f .push-to-server ]; then
+        node -e 'v=require(`./package`).version; console.log(`PORT=3${v.replace(/\./g, "")}\nVERSION=v${v}`)' > .version-as-vars
+        source .version-as-vars
+        LOCATION=/$VERSION/
+
+        if $PROD; then
+            PORT=3000
+            LOCATION=/
+        fi
+
         source .push-to-server
+        
         echo Pushing to $TARGET from $PWD
 
         if [ "$BUILD" != "" ]; then
@@ -13,28 +28,46 @@ while true; do
         fi
 
         N=--exclude=node_modules
-        if [ "$PORT" = "" ]; then
-            echo Pushing to /sites
+        if [ ! -f run.js ]; then
+            echo No run.js so pushing to /sites
+            SITEURL=https://$TARGET/
             rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/sites/$TARGET
+            if [ "$AFTER" != "" ]; then
+                eval "$AFTER" || exit 1
+            fi
+
+            firefox --new-window $SITEURL
+
         else
-            echo Pushing to /proxy_pass
+            echo Trying new port/proxy, harmless if dup
+            export PORT LOCATION
+            configure-server-app $TARGET
+            echo Pushing to /proxy_pass/$PORT
             rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/proxy_pass/$PORT || exit 1
-            # the -t is needed for nvm to find npm & node
-            ssh -t $TARGET "cd /proxy_pass/$PORT && npm i" || exit 1
+            ssh $TARGET ". .nvm/nvm.sh; cd /proxy_pass/$PORT && npm i" || exit 1
+
+            if [ "$AFTER" != "" ]; then
+                eval "$AFTER" || exit 1
+            fi
+
             echo
-            echo "Consider"
+            echo "Consider something like:"
             echo
             echo ssh $TARGET
             echo "cd /proxy_pass/$PORT ; export PORT=$PORT ; export SITEURL=$SITEURL"
-            echo "node run.sh"
-            echo "pm2 start run.js"
+            echo "pm2 status"
+            echo
+            echo "node run # check for errors"
+            if $PROD; then
+                echo "pm2 stop prod"
+                echo "pm2 start --name prod run.js"
+            else
+                echo "pm2 start run.js"
+            fi
+            echo pm2 save
+            echo
+            echo firefox --new-window $SITEURL
         fi
-
-        if [ "$AFTER" != "" ]; then
-            eval "$AFTER" || exit 1
-        fi
-
-        firefox --new-window $SITEURL
 
         exit 0
     fi
@@ -50,11 +83,6 @@ cat > .push-to-server <<_END
 # Hostname to push to
 TARGET=example.com
 
-# If these files are for a live-site, which port will they run on?
-# PORT=3000
-
-# If live-site, Where should nginx expose this port? (like /foo/)
-LOCATION=/
 _END
 
 EOF
