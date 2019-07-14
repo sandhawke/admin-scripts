@@ -31,9 +31,8 @@ while true; do
 
         N=--exclude=node_modules
         if [ ! -f run.js ]; then
-            echo No run.js so pushing to /sites
-            SITEURL=https://$TARGET/
-            rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/sites/$TARGET
+            echo No run.js so pushing to /sites/$TARGET$LOCATION
+            rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/sites/$TARGET$LOCATION
             if [ "$AFTER" != "" ]; then
                 eval "$AFTER" || exit 1
             fi
