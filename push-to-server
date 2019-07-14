@@ -6,8 +6,10 @@ fi
 
 while true; do
     if [ -f .push-to-server ]; then
-        eval "$(node -e 'x=``; v=require(`./package`).version; console.log(`PORT=3${v.replace(/\./g, x)}\nVERSION=v${v}`)')"
-        LOCATION=/$VERSION/
+        if [ -f package.json ]; then
+            eval "$(node -e 'x=``; v=require(`./package`).version; console.log(`PORT=3${v.replace(/\./g, x)}\nVERSION=v${v}`)')"
+            LOCATION=/$VERSION/
+        fi
 
         if $PROD; then
             PORT=3000
@@ -18,6 +20,7 @@ while true; do
         
         echo Pushing to $TARGET from $PWD
 
+        # This CAN do a "cd"
         if [ "$BUILD" != "" ]; then
             eval "$BUILD" || exit 1
         fi
