@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# maybe there's a way to get npm to tell me the files?
+if [ "$*" = "" ]; then
+   echo usage: files...
+   exit 1
+fi
+
+R=$HOME/Repos
+M=$(cd $R; echo *)
+
+now=$(date -Is | tr : _)
+tar czvf .npm-require-local.bak.$now.tz "$@"
+
+for X in $M; do
+  sed -i -e "s;require('$X');require('$R/$X');g" "$@"
+done
