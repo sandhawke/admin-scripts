@@ -27,8 +27,12 @@ fi
 
 M=$(cd $R; echo * $MANUAL)
 
+# maybe only do this if git's not super clean?
 now=$(date -Is | tr : _)
-tar czvf .npm-require-local.bak.$now.tz "$@"
+bakdir=$HOME/.npm-require-local/$PWD
+mkdir -p $bakdir
+echo making backup tar file in $bakdir
+tar czvf $bakdir/$now.tz "$@"
 
 for X in $M; do
     if $UNDO; then
