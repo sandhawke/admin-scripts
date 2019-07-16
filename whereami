@@ -1,0 +1,31 @@
+#!/bin/sh
+curl -s ifconfig.co/json | sed -e 's/.*hostname":"//' -e 's/".*//'
+echo
+
+# WAS
+# 
+# #!/usr/bin/env node
+# const http = require('http')
+# const dns = require('dns')
+# 
+# http.get('http://api.ipify.org?format=txt', (res) => {
+#   res.setEncoding('utf8');
+#   res.on('data', chunk => {
+#     printDomainName(chunk)
+#   })
+# })
+# 
+# function printDomainName(ip) {
+#   dns.reverse('98.118.37.192', (err, hostnames) => {
+#     if (err) throw err
+#     console.log(hostnames[0])
+#     if (hostnames.length > 1) {
+#       console.error('# Also', hostnames.slice(1).join(' '))
+#     }
+#   })
+# }
+# 
+# 
+# // ip=$(curl -s https://api.ipify.org)
+# 
+# 
