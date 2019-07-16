@@ -1,4 +1,12 @@
 #!/bin/sh
+
+echo
+echo YOU PROBABLY WANT
+echo npm-require-local *.js
+echo INSTEAD
+echo
+exit 1
+
 repos=$HOME/Repos
 if [ ! -f package.json ]; then
   echo Only use this in a directory with a package.json
