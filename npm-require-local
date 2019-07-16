@@ -1,17 +1,39 @@
-#!/bin/sh
+#!/bin/bash
+#
+# Change    require('module-I-have-locally')
+# to        require('/...path.../module-I-have-locally')
+#
+# and -u changes is back.
 
 # maybe there's a way to get npm to tell me the files?
-if [ "$*" = "" ]; then
-   echo usage: files...
-   exit 1
-fi
 
 R=$HOME/Repos
-M=$(cd $R; echo *)
+# things not dir names
+MANUAL="live-source-proxy/client live-source-proxy/server flextag-protocol/client flextag-protocol/server"
+
+USAGE="Usage: $0 [-u] *.js"
+
+if [ "$#" == "0" ]; then
+	echo "$USAGE"
+	exit 1
+fi
+
+if [ "$1" == "-u" ]; then
+    shift
+    UNDO=true
+else
+    UNDO=false
+fi
+
+M=$(cd $R; echo * $MANUAL)
 
 now=$(date -Is | tr : _)
 tar czvf .npm-require-local.bak.$now.tz "$@"
 
 for X in $M; do
-  sed -i -e "s;require('$X');require('$R/$X');g" "$@"
+    if $UNDO; then
+        sed -i -e "s;require('$R/$X');require('$X');g" "$@"
+    else
+        sed -i -e "s;require('$X');require('$R/$X');g" "$@"
+    fi
 done
