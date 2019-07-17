@@ -2,8 +2,11 @@
 
 cd /home/sandro/Repos
 
-echo -n 'Name: '
-read name
+name=$1
+if [ -z "$name" ]; then 
+    echo -n 'Name: '
+    read name
+fi
 
 mkdir $name || exit
 
@@ -47,7 +50,7 @@ cat <<_END >> package.json
   "scripts": {
     "test": "npx standard && npx tap --cov test*.js test/*.js",
     "tap": "npx tap --cov test*.js test/*.js",
-    "coveralls": "export COVERALLS_REPO_TOKEN=$(cat $HOME/.coveralls-tokens/$npm_package_name); npx tap --cov test*.js test/*.js"
+    "coveralls": "export COVERALLS_REPO_TOKEN=\$(cat \$HOME/.coveralls-tokens/\$npm_package_name); npx tap --cov test*.js test/*.js"
   },
   "repository": {
     "type": "git",
