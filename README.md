@@ -1,7 +1,7 @@
 # admin-scripts
 
-shell scripts I use for sysadmin stuff
+Shell scripts I use, mostly which I wrote myself
 
-***NOT SAFE*** : these probably include some assumptions about how I
-like my systems set up.
+These are ***NOT SAFE*** for other people to use directly.  They
+hardcode things like my email address and linux version assumptions.
 
