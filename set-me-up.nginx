@@ -23,7 +23,7 @@ server {
   client_max_body_size 0;
 
   root /sites/example.com/;
-  try_files $uri $uri.html $uri/ =404;
+  try_files $uri $uri.html $uri.txt $uri.md $uri/ =404;
 
   gzip on;
   gzip_disable "msie6";
@@ -49,10 +49,14 @@ server {
   proxy_set_header Connection $connection_upgrade;
 
   tcp_nodelay on;
-  
-  # NEW LINES HERE
-
   error_page 500 501 502 503 504 /500.html;
+
+  # - when debugging rewrite rules, consider:
+  # error_log /var/log/nginx/notice.log notice;
+  # rewrite_log on;
+
+  include /sites/example.com/nginx-include/*;
+  # NEW LINES HERE
 }
 
 server { # redirect http://example.com
