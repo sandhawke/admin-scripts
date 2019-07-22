@@ -1,0 +1,40 @@
+
+cd /
+mkdir -p sites/cimba.co-versions-tmp
+cd sites/cimba.co-versions-tmp
+git clone -n https://github.com/linkeddata/cimba.git working
+
+cat <<EOF > index.html
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"><head><title>Available Versions</title></head><body>
+EOF
+
+function version {
+  echo "<p><a href=\"$v\">$v</a> $d.  $m    [<a href=\"https://github.com/linkeddata/cimba/tree/$b\">browse</a> on github]</p>" >> index.html
+  mkdir $v
+  cd working
+  git checkout $b; git checkout-index -a -f --prefix=../$v/
+  cd ..
+}
+
+v=1.0
+b=84e206b918e0e8c5124c566514d2b67130686431
+d=17 March 2014
+m="The version used for the <a href=\"\">demo video</a>"
+version
+
+v=1.1
+b=5a6306c4aee7536fc4912da3fc13d9dcf9cecb9d
+d=22 May 2014
+m="Added Webizen registration and lookup; other minor changes"
+version
+
+cat <<EOF >> index.html
+</body></html>
+EOF
+cd ..
+mv cimba.co-versions cimba.co-versions-old
+mv cimba.co-versions-tmp cimba.co-versions
+rm -rf cimba.co-versions-old
+
+
