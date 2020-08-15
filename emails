@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+// -*-mode: js2-mode -*-
+
+const from = process.stdin
+let s = ''
+const e = []
+from.on('data', data => { s += data })
+from.on('end', () => {
+  // s = s.replace(/.*(\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b.*)/ig, '$1, ')
+  s = s.replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/ig, f)
+  // console.log(s)
+  console.log(e.join(',\n'))
+})
+
+function f (...args) {
+  e.push(args[0])
+}

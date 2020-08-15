@@ -23,6 +23,9 @@ certbot certonly --agree-tos --eff-email -t -m $EMAIL -d $HOST --standalone --pr
 
 mkdir -m 755 -p /sites/$HOST
 echo "server set up $(date -Ru)" > /sites/$HOST/index.html
+
+# something like 
+# echo 'beta:$2y$' > /sites/$HOST/.htpasswd
 chmod 644 /sites/$HOST/index.html
 
 cat <<EOF > /etc/nginx/sites-available/default
@@ -52,9 +55,9 @@ if grep $USER /etc/passwd; then
     echo "$USER already in /etc/passwd"
 else
     adduser --disabled-password --gecos "$USER admin" $USER || exit 1
-    mkdir -p ~$USER/.ssh || exit 1
-    cp /root/.ssh/authorized_keys ~$USER/.ssh/authorized_keys || exit 1
-    cd ~$USER || exit 1
+    mkdir -p /home/$USER/.ssh || exit 1
+    cp /root/.ssh/authorized_keys /home/$USER/.ssh/authorized_keys || exit 1
+    cd /home/$USER || exit 1
     chown -R $USER .ssh
     chmod 700 .ssh
     chmod 600 .ssh/authorized_keys

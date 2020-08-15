@@ -41,6 +41,8 @@ $desc
 _END
 git add README.md
 
+##     "coveralls": "export COVERALLS_REPO_TOKEN=\$(cat \$HOME/.coveralls-tokens/\$npm_package_name); npx tap --cov test*.js test/*.js"
+
 cat <<_END >> package.json
 {
   "name": "$name",
@@ -48,9 +50,7 @@ cat <<_END >> package.json
   "description": "$desc",
   "main": "index.js",
   "scripts": {
-    "test": "npx standard && npx tap --cov test*.js test/*.js",
-    "tap": "npx tap --cov test*.js test/*.js",
-    "coveralls": "export COVERALLS_REPO_TOKEN=\$(cat \$HOME/.coveralls-tokens/\$npm_package_name); npx tap --cov test*.js test/*.js"
+    "test": "npx standard && npx jest --coverage"
   },
   "repository": {
     "type": "git",
@@ -65,9 +65,6 @@ cat <<_END >> package.json
     "url": "https://github.com/sandhawke/$name/issues"
   },
   "homepage": "https://github.com/sandhawke/$name#readme",
-  "devDependencies": {
-    "tape": "^4.9.1"
-  },
   "dependencies": {
     "debug": "^4.1.0"
   }
@@ -75,12 +72,11 @@ cat <<_END >> package.json
 _END
 
 cat <<EOF >> test.js
-const test = require('tape')
+/* eslint-env jest */
 const my = require('.')
 
-test(async (t) => {
-  t.equal(await my.f(), 'expected output')
-  t.end()           
+test('first test', async () => {
+  expect(2 + 2).toBe(4)            
 })
 EOF
 

@@ -1,0 +1,12 @@
+#!/bin/bash
+# https://stackoverflow.com/questions/8154516/git-get-number-of-changed-lines-per-day
+a=""
+b=""
+for i in $(seq 0 42)
+do
+    b=$(git diff --shortstat "@{ $i day ago }")
+    if [[ "$b" != "$a" ]]; then
+        echo $(date --date="$i days ago" +%F) $b
+    fi
+    a=$b
+done
