@@ -7,7 +7,7 @@ cd ~/Repos
 
 # all the repos that have had json or js activity in the past 45 days
 
-for x in $(find */*.json */*.js */*.md -mtime -150 | sed 's;/.*;;' | sort | uniq)
+for x in $(find */*.json */*.js */*.md -mtime -60 | sed 's;/.*;;' | sort | uniq)
 do
     if [ -f $x/UNMAINTAINED* ]; then
         unm="$unm $x"
