@@ -7,7 +7,7 @@ fi
 while true; do
     if [ -f .push-to-server ]; then
         if [ -f package.json ]; then
-            eval "$(node -e 'x=``; v=require(`./package`).version; console.log(`PORT=3${v.replace(/\./g, x)}\nVERSION=v${v}`)')"
+            eval "$(node -e 'x=``; v=require(`./package`).version; console.log(`PORT=3${v.replace(/\-.*/, x).replace(/\./g, x)}\nVERSION=v${v}`)')"
             LOCATION=/$VERSION/
         fi
 
