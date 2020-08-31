@@ -53,10 +53,15 @@ server {
   tcp_nodelay on;
   error_page 500 501 502 503 504 /500.html;
 
+  ## All URLs just serve index.html, which is a SPA
+  ## except /api which goes to port 3000
+  
+  location = /api { proxy_pass http://127.0.0.1:3000/; }
+
   # - when debugging rewrite rules, consider:
   # error_log /var/log/nginx/notice.log notice;
   # rewrite_log on;
-  # REACT HACK
+  rewrite ^/api$ /api last;
   rewrite ^/(.*\..*)$ /$1 last;
   rewrite ^/.*$ /index.html last;
   
