@@ -4,7 +4,7 @@ echo running $0 at $(date)
 apt-get update || exit
 apt-get upgrade -y || exit
 
-apt-get install -y curl rsync screen build-essential checkinstall git || exit
+apt-get install -y curl rsync screen build-essential git || exit
 
 apt-get -y install ufw || exit 1
 ufw disable
