@@ -45,14 +45,17 @@ while true; do
             configure-server-app $TARGET
             echo Pushing to /proxy_pass/$PORT
             rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/proxy_pass/$PORT || exit 1
-            ssh $TARGET ". .nvm/nvm.sh; cd /proxy_pass/$PORT && npm i" || exit 1
+
+            # check auth and add ssh host so "npm i" can install
+            # private github dependencies (like git+ssh://github.com/ ...)
+            ssh -A $TARGET ". .nvm/nvm.sh; ssh -o StrictHostKeyChecking=no -T git@github.com; cd /proxy_pass/$PORT && npm i" || exit 1
 
             if [ "$AFTER" != "" ]; then
                 eval "$AFTER" || exit 1
             fi
 
             echo
-            echo "Consider something like:"
+            echo "## Consider something like:"
             echo
             echo ssh $TARGET
             echo "cd /proxy_pass/$PORT ; export PORT=$PORT ; export SITEURL=$SITEURL"
@@ -66,6 +69,9 @@ while true; do
                 echo "pm2 start run.js"
             fi
             echo pm2 save
+            echo
+            echo '## Or just:'
+            echo ssh $TARGET '". .nvm/nvm.sh; pm2 restart prod"'
             echo
             echo firefox --new-window $SITEURL
         fi
