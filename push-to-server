@@ -1,7 +1,9 @@
+
 if [ "$1" = "prod" ]; then
     PROD=true
 else
-    PROD=false
+    PROD=true
+    echo '### current version assumed "prod" ###'
 fi
 
 while true; do
@@ -46,9 +48,9 @@ while true; do
             echo Pushing to /proxy_pass/$PORT
             rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/proxy_pass/$PORT || exit 1
 
-            # check auth and add ssh host so "npm i" can install
+            # check auth and add ssh host so "npm update" can install
             # private github dependencies (like git+ssh://github.com/ ...)
-            ssh -A $TARGET ". .nvm/nvm.sh; ssh -o StrictHostKeyChecking=no -T git@github.com; cd /proxy_pass/$PORT && npm i" || exit 1
+            ssh -A $TARGET ". .nvm/nvm.sh; ssh -o StrictHostKeyChecking=no -T git@github.com; cd /proxy_pass/$PORT && npm update" || exit 1
 
             if [ "$AFTER" != "" ]; then
                 eval "$AFTER" || exit 1
