@@ -27,7 +27,16 @@ git init
 # cp ../LICENSE.txt .
 # git add LICENSE.txt
 
-cp ../.gitignore .
+cat <<EOF >> .gitignore
+.env*
+*~
+OLD*
+.nyc*
+node_modules
+out-*
+_*
+coverage
+EOF
 git add .gitignore
 
 cat <<_END >> README.md
@@ -45,12 +54,17 @@ git add README.md
 
 cat <<_END >> package.json
 {
+  "type": "module",
   "name": "$name",
   "version": "0.0.0",
   "description": "$desc",
   "main": "index.js",
   "scripts": {
-    "test": "npx standard && npx jest --coverage"
+    "test": "npx standard && NODE_OPTIONS=--experimental-vm-modules npx jest --coverage",
+    "jest": "NODE_OPTIONS=--experimental-vm-modules npx jest"
+  },
+  "jest": {
+    "transform": {}
   },
   "repository": {
     "type": "git",
@@ -66,18 +80,30 @@ cat <<_END >> package.json
   },
   "homepage": "https://github.com/sandhawke/$name#readme",
   "dependencies": {
-    "debug": "^4.1.0"
+    "debug": "^4.3.1"
+  },
+  "devDependencies": {
+    "jest": "^26.6.3",
   }
 }
 _END
 
 cat <<EOF >> test.js
 /* eslint-env jest */
-const my = require('.')
+import * as my from '.'
+import Debug from 'debug'
+
+const debug = new Debug('$name/test')
 
 test('first test', async () => {
   expect(2 + 2).toBe(4)            
 })
+EOF
+
+cat <<EOF >> index.js
+import Debug from 'debug'
+
+const debug = new Debug('$name')
 EOF
 
 git commit -m'default init files'
