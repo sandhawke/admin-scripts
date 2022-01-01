@@ -1,0 +1,85 @@
+# template version Mon, 24 Jun 2019 14:55:21 +0000
+
+map $http_upgrade $connection_upgrade {
+  default upgrade;
+  ''      close;
+}
+
+server {
+  # auth_basic "Closed Beta Preview";
+  # auth_basic_user_file /sites/example.com/.htpasswd;
+  listen 443 ssl http2;
+  listen [::]:443 ssl http2;
+  server_name example.com;
+
+  ssl_protocols TLSv1.2 TLSv1.3; 
+  ssl_ciphers HIGH:!MEDIUM:!LOW:!aNULL:!NULL:!SHA;
+  ssl_prefer_server_ciphers on;
+  ssl_session_cache shared:SSL:10m;
+
+  ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+  keepalive_timeout    70;
+  sendfile             on;
+  client_max_body_size 0;
+
+  root /sites/example.com/;
+  try_files $uri $uri.html $uri.txt $uri.md $uri/ =404;
+
+  gzip on;
+  gzip_disable "msie6";
+  gzip_vary on;
+  gzip_proxied any;
+  gzip_comp_level 6;
+  gzip_buffers 16 8k;
+  gzip_http_version 1.1;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+  add_header Strict-Transport-Security "max-age=8640000";
+
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto https;
+  proxy_set_header Proxy "";
+
+  proxy_buffering off;
+  proxy_redirect off;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection $connection_upgrade;
+
+  tcp_nodelay on;
+  error_page 500 501 502 503 504 /500.html;
+
+  # NEW LINES HERE
+}
+
+server { # redirect http://example.com
+  listen 80;
+  listen [::]:80;
+  server_name  example.com;
+  return       301 https://example.com$request_uri; 
+}
+
+server { # redirect http://www.example.com
+  listen 80;
+  listen [::]:80;
+  server_name  www.example.com;
+  return       301 https://example.com$request_uri; 
+}
+
+server { # redirect https://www.example.com
+    listen       443 ssl http2;
+    server_name  www.example.com;
+    return       301 https://example.com$request_uri;
+
+    ssl_protocols TLSv1.2 TLSv1.3; 
+    ssl_ciphers HIGH:!MEDIUM:!LOW:!aNULL:!NULL:!SHA;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+}
