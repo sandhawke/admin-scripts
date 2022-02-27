@@ -1,0 +1,24 @@
+#!/bin/sh
+
+if [ "$TARGET" = "" ]; then
+    TARGET=$1
+fi
+
+if [ "$TARGET" = "" ]; then
+    echo Usage: $0 HOSTNAME
+    exit 1
+fi
+
+USER=$LOGNAME
+
+cd $(dirname $0) || exit 1
+scp set-me-up-as-worker.sh set-me-up-as-worker2.sh root@$TARGET: || exit 1
+ssh root@$TARGET "export HOST=$TARGET USER=$USER; sh set-me-up-as-worker.sh" || exit 1
+#echo
+#echo CONSIDER:
+#echo 
+#echo "opn https://$TARGET"
+#echo "configure-server-pm2 $TARGET      # for node.js + pm2"
+#echo "configure-server-app $TARGET      # tell nginx to proxy"
+#echo push-to-server
+#echo

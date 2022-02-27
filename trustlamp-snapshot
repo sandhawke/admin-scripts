@@ -1,0 +1,10 @@
+#!/bin/sh
+OUT=/home/sandro/trustlamp-snapshots/log
+echo logging to $OUT
+NOW=`date +%Y-%m-%d-%H%M%S`
+echo '==================== running' $NOW >> $OUT
+DB=/home/sandro/trustlamp-snapshots/$NOW
+mkdir -p $DB
+time rsync -avvR --no-relative s1.trustlamp.com:birdcage-db/userdb $DB >> $OUT 2>&1
+time rsync -avvR --no-relative s1.trustlamp.com:/proxy_pass/3000/userdb.log $DB >> $OUT 2>&1
+find $DB -ls >> $OUT 2>&1

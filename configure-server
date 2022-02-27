@@ -1,33 +1,59 @@
 #!/bin/sh
 
+cd $(dirname $0) || exit 1
+
 # where can we pull this from?  It's needed for letsencrypt
 EMAIL=sandro@hawke.org
 
-#
-# Should be okay to run multiple times, and with shared servers, once
-# for each name
-#
+TARGETUSER=root
 
-if [ "$TARGET" = "" ]; then
-    TARGET=$1
+if [ "$1" = "--me" ]; then
+    TARGETUSER=$LOGNAME
+    shift
 fi
 
 if [ "$TARGET" = "" ]; then
-    echo Usage: $0 HOSTNAME
+    TARGET=$1
+    shift
+else
+    echo using TARGET=$TARGET
+fi
+
+if [ "$TARGET" = "" ]; then
+    echo "Usage: $0 [--me] [hostname] <script>"
+    echo "No hostname given and TARGET env var not set"
+    exit 1
+fi
+
+if [ "$SCRIPT" = "" ]; then
+    SCRIPT=$1
+fi
+
+if [ "$SCRIPT" = "" ]; then
+    echo "No script given.  Options are:"
+    (cd set-me-up; echo '   ' *.sh | sed s'/\.sh//g')
+    exit 1
+fi
+
+# echo TARGETUSER $TARGETUSER TARGET $TARGET SCRIPT $SCRIPT
+# exit
+
+if [ ! -d set-me-up ]; then
+    echo 'Missing ./set-me-up'
     exit 1
 fi
 
 USER=$LOGNAME
 
-# maybe send different files to different types of hosts?
-#
-# for now, we only set up generic https nginx servers
+echo scp -rpq set-me-up $TARGETUSER@$TARGET: 
+scp -rpq set-me-up $TARGETUSER@$TARGET: || exit 1
+echo ssh $TARGETUSER@$TARGET "export HOST=$TARGET EMAIL=$EMAIL USER=$USER; cd set-me-up; sh $SCRIPT.sh"
+ssh $TARGETUSER@$TARGET "export HOST=$TARGET EMAIL=$EMAIL USER=$USER; cd set-me-up; sh $SCRIPT.sh" || exit 1
 
-cd $(dirname $0) || exit 1
-scp set-me-up.sh set-me-up.nginx root@$TARGET: || exit 1
-ssh root@$TARGET "export HOST=$TARGET EMAIL=$EMAIL USER=$USER; sh set-me-up.sh" || exit 1
-curl https://$TARGET
-echo
+# curl https://$TARGET
+
+exit 0
+
 echo CONSIDER:
 echo 
 echo "opn https://$TARGET"

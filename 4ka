@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# with 4k display plugged into hdmi port
+
+# need to disable one of the screeens -- can only support 3 (at this resolution at least).  For now do that manually in display-settings at the end.
+
+# also -- positioning!  & primary-ness
+
+xrandr --output eDP-1 --mode 1920x1080 --pos 4480x360 --primary --output HDMI-1  --mode 1920x1080 --pos 0x700
+
+xfce4-display-settings &
+
+
+
+
