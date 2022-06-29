@@ -1,0 +1,101 @@
+rox
+if [ "$1" = "prod" ]; then
+    PROD=true
+else
+    PROD=true
+    echo '### current version assumed "prod" ###'
+fi
+
+while true; do
+    if [ -f .push-to-server ]; then
+        if [ -f package.json ]; then
+            eval "$(node -e 'x=``; v=require(`./package`).version; console.log(`PORT=3${v.replace(/\-.*/, x).replace(/\./g, x)}\nVERSION=v${v}`)')"
+            LOCATION=/$VERSION/
+        fi
+
+        if $PROD; then
+            PORT=3000
+            LOCATION=/
+        fi
+
+        source .push-to-server
+        
+        echo Pushing to $TARGET from $PWD
+
+        # This CAN do a "cd"
+        if [ "$BUILD" != "" ]; then
+            eval "$BUILD" || exit 1
+        fi
+
+        if [ "$SITEURL" = "" ]; then
+            SITEURL=https://$TARGET$LOCATION
+        fi
+
+        N=--exclude=node_modules
+        if [ ! -f run.js ]; then
+            echo No run.js so pushing to /sites/$TARGET$LOCATION
+            rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/sites/$TARGET$LOCATION
+            if [ "$AFTER" != "" ]; then
+                eval "$AFTER" || exit 1
+            fi
+
+            firefox --new-window $SITEURL
+
+        else
+            echo Trying new port/proxy, harmless if dup
+            export PORT LOCATION
+            configure-server-app $TARGET
+            echo Pushing to /proxy_pass/$PORT
+            rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/proxy_pass/$PORT || exit 1
+
+            # check auth and add ssh host so "npm update" can install
+            # private github dependencies (like git+ssh://github.com/ ...)
+            ssh -A $TARGET ". .nvm/nvm.sh; ssh -o StrictHostKeyChecking=no -T git@github.com; cd /proxy_pass/$PORT && npm update" || exit 1
+
+            if [ "$AFTER" != "" ]; then
+                eval "$AFTER" || exit 1
+            fi
+
+            echo
+            echo "## Consider something like:"
+            echo
+            echo ssh $TARGET
+            echo "cd /proxy_pass/$PORT ; export PORT=$PORT ; export SITEURL=$SITEURL"
+            echo "pm2 status"
+            echo
+            echo "node run # check for errors"
+            if $PROD; then
+                echo "pm2 stop prod"
+                echo "pm2 start --name prod run.js"
+            else
+                echo "pm2 start run.js"
+            fi
+            echo pm2 save
+            echo
+            echo '## Or just:'
+            echo ssh $TARGET '". .nvm/nvm.sh; pm2 restart prod"'
+            echo
+            echo firefox --new-window $SITEURL
+        fi
+
+        exit 0
+    fi
+    echo "push-to-server: missing config in $PWD"
+    if [ "$PWD" = "/" ]; then
+cat <<EOF
+
+Create your .push-to-server file with:
+
+cat > .push-to-server <<_END
+# These are shell variables for push-to-server
+
+# Hostname to push to
+TARGET=example.com
+
+_END
+
+EOF
+        exit 1
+    fi
+    cd ..
+done

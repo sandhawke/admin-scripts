@@ -24,7 +24,7 @@ server {
 
   root /sites/example.com/;
   try_files $uri $uri.html $uri.txt $uri.md $uri/ /_create.html =404;
-  index _index.html _create.html;
+  index _index.html;
   expires 2s;
   
   gzip on;
@@ -50,10 +50,13 @@ server {
   proxy_set_header Upgrade $http_upgrade;
   proxy_set_header Connection $connection_upgrade;
 
-  location /_proxy_pass { proxy_pass http://127.0.0.1:3000/; }
-
   tcp_nodelay on;
   error_page 500 501 502 503 504 /500.html;
+
+  location / { proxy_pass http://127.0.0.1:3000/; }
+  location /_test_1/ { proxy_pass http://127.0.0.1:3001/; }
+  location /_test_2/ { proxy_pass http://127.0.0.1:3002/; }
+  location /_test_3/ { proxy_pass http://127.0.0.1:3003/; }
 
   # NEW LINES HERE
 }

@@ -1,0 +1,87 @@
+#!/bin/bash
+
+INFRA="\
+breakable-loop \
+clopt \
+config-state \
+datapages-access-key \
+datapages-auto \
+datapages-base \
+datapages-blobs-s3 \
+datapages-docx \
+datapages-fs \
+datapages-html \
+datapages-image-scaler \
+datapages-worker
+simple-gapi \
+"
+
+APPS="\
+datapages-bench \
+datapages-bridge-gdrive \
+datapages-bridge-gh \
+datapages-bridge-ynab \
+comfy-bench \
+datapages-docs \
+datapages-extruder \
+lest \
+datapages-mem \
+datapages-webhooks \
+datapages-webserver \
+"
+
+OLD="\
+datapages-server
+datapages-cli \
+datapages-newsfeed \
+datapages-frame \
+datapages-cache-video \
+datapages-client \
+datapages-pg \
+"
+
+VER=$(date -Is) # or your release name
+VER=0.2rc1
+dir1=/tmp/datapages-pack
+dir=$dir1/datapages-$VER
+
+if [ -d $dir ]; then
+    echo build directory already exists, condsider:
+    echo rm -rf $dir
+    exit 1
+fi
+
+mkdir -p $dir
+
+shopt -s nullglob
+
+# echo $INFRA $APPS $OLD
+cd ~/Repos
+files=""
+for x in $INFRA $APPS # $OLD
+do
+    files="$files $(echo $x/*.js $x/*.json $x/.gitignore $x/examples/*.js $x/*.md $x/*.html $x/docs/*.md $x/*.sh)"
+done
+
+# rm -r $dir
+
+tar cf - $files  | (cd $dir; tar xf -)
+
+cd $dir
+ln -s . node_modules
+# maybe be JS instead using a manifest?  or package.json :-)
+cat <<'EOF' > install.sh
+#!/bin/sh
+npm install npm-install-if-needed -g
+for x in *; do
+  if [ -d $x -a  -f $x/package.json ]; then
+    (cd $x; npm-install-if-needed)
+  fi
+done
+EOF
+
+cd $dir1
+
+filename=$dir1/datapages-$VER.tgz
+tar czvf $filename datapages-$VER
+ls -l $filename

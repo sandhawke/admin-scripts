@@ -1,0 +1,49 @@
+# -*-mode: shell-script -*-
+
+if [ -z $TARGET ]; then
+    echo "no TARGET set in environment"
+    exit 1
+fi
+
+DESTDIR=/usr/local/datapages$VERSION
+
+echo Pushing Repos '===>' $TARGET:$DESTDIR
+
+# This CAN do a "cd"
+if [ "$BUILD" != "" ]; then
+    eval "$BUILD" || exit 1
+fi
+
+N="" # --exclude=node_modules    KEEP EM WHILE NO BINARY
+MODS="datapages-auto datapages-base config-state datapages-fs datapages-blobs-s3 datapages-html datapages-image-scaler datapages-access-key simple-gapi breakable-loop datapages-docx clopt datapages-import modular-rpc datapages-cli datapages-rpc-server datapages-webserver datapages-bridge-email"
+
+# echo Trying new port/proxy, harmless if dup
+# export PORT LOCATION
+# configure-server-app $TARGET
+
+# echo Pushing to $DESTDIR
+# rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/proxy_pass/$PORT || exit 1
+ssh root@$TARGET mkdir -p $DESTDIR || exit 1
+# rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:$DESTDIR || exit 1
+(cd ~/Repos; rsync -aR $MODS --exclude=".*" --exclude=OLD root@$TARGET:$DESTDIR) || exit 1
+ssh root@$TARGET "(cd $DESTDIR; pwd; rm -f node_modules; ln -s . node_modules ); rm -f /usr/local/bin/site; ln -s $DESTDIR/datapages-cli/cli.js /usr/local/bin/site; ln -s $DESTDIR/config-state/cli.js /usr/local/bin/config-state"
+
+SNAME=rpc-server
+echo
+echo "## Consider something like: "
+echo
+echo ssh root@$TARGET
+echo cd $DESTDIR
+echo "pm2 status"
+echo "site"
+echo "site start $SNAME # check for errors"
+echo "pm2 stop $SNAME"
+echo "pm2 start --name $SNAME site start $NAME"
+echo
+echo pm2 save
+echo
+# echo '## Or just:'
+# echo ssh root@$TARGET pm2 restart $SNAME
+# echo ssh root@$TARGET '". .nvm/nvm.sh; pm2 restart' $SNAME'"'
+# echo firefox --new-window $SITEURL
+exit 0

@@ -3,7 +3,8 @@
 # can be undone for re-setup by just: rm -rf $USER/.nvm
 
 # What node version do we want pm2 running under?
-VERSION=16.3.0
+VERSION=16.15.0
+echo target version $VERSION
 
 if ! node --version; then 
 
@@ -16,6 +17,8 @@ if ! node --version; then
     # do we want --lts on both of these?
     nvm install $VERSION
     nvm use $VERSION
+
+    echo '=== nvm in use'
 fi
 
 npm i -g pm2
@@ -24,4 +27,8 @@ npm i -g pm2
 #  
 sudo env PATH=$PATH:$HOME/.nvm/versions/node/v$VERSION/bin $HOME/.nvm/versions/node/v$VERSION/lib/node_modules/pm2/bin/pm2 startup systemd -u `whoami` --hp $HOME
 
+echo '=== starting pm2'
+
 pm2 startup
+
+echo '=== pm2 started'

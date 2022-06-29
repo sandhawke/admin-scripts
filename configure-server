@@ -47,8 +47,8 @@ USER=$LOGNAME
 
 echo scp -rpq set-me-up $TARGETUSER@$TARGET: 
 scp -rpq set-me-up $TARGETUSER@$TARGET: || exit 1
-echo ssh $TARGETUSER@$TARGET "export HOST=$TARGET EMAIL=$EMAIL USER=$USER; cd set-me-up; sh $SCRIPT.sh"
-ssh $TARGETUSER@$TARGET "export HOST=$TARGET EMAIL=$EMAIL USER=$USER; cd set-me-up; sh $SCRIPT.sh" || exit 1
+echo ssh $TARGETUSER@$TARGET "export HOST=$TARGET EMAIL=$EMAIL NEWUSER=$USER; cd set-me-up; sh $SCRIPT.sh"
+ssh $TARGETUSER@$TARGET "export HOST=$TARGET EMAIL=$EMAIL NEWUSER=$USER; cd set-me-up; sh $SCRIPT.sh" || exit 1
 
 # curl https://$TARGET
 

@@ -89,10 +89,10 @@ _END
 
 cat <<EOF >> test.js
 /* eslint-env jest */
-import * as my from '.'
-import Debug from 'debug'
+import * as my from './index.js'
+import dbg from 'debug'
 
-const debug = new Debug('$name/test')
+const debug = dbg('$name/test')
 
 test('first test', async () => {
   expect(2 + 2).toBe(4)            
@@ -100,9 +100,9 @@ test('first test', async () => {
 EOF
 
 cat <<EOF >> index.js
-import Debug from 'debug'
+import dbg from 'debug'
 
-const debug = new Debug('$name')
+const debug = dbg('$name')
 EOF
 
 git commit -m'default init files'

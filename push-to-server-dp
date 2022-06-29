@@ -1,18 +1,11 @@
-# -*-mode: shell-script -*-
-#
-# this would be a lot cleaner if we used npm to install the needed
-# dependencies, but they're private and I haven't quite figured out
-# how to do that. Might be much slower tho?
-#
-
 while true; do
     if [ -f .push-to-server ]; then
         if [ ! -f package.json ]; then
             echo 'no package.json'
             exit 1
         fi
-        eval "$(node -e 'p=require(`./package`); console.log(`VERSION=v${p.version}\nNAME=${p.name}`)')"
             
+        PORT=3000
         LOCATION=/
 
         source .push-to-server
@@ -22,13 +15,7 @@ while true; do
             exit 1
         fi
 
-        if [ -n "$PORT" ]; then
-            DESTDIR=/proxy_pass/$PORT
-        else
-            DESTDIR=/usr/local/$NAME/$VERSION
-        fi
-
-        echo Pushing $PWD '===>' $TARGET:$DESTDIR
+        echo Pushing to $TARGET from $PWD
 
         # This CAN do a "cd"
         if [ "$BUILD" != "" ]; then
@@ -39,18 +26,16 @@ while true; do
             SITEURL=https://$TARGET$LOCATION
         fi
 
-        N="" # --exclude=node_modules    KEEP EM WHILE NO BINARY
-        MODS="datapages-auto datapages-base config-state datapages-fs datapages-blobs-s3 datapages-html datapages-image-scaler datapages-access-key simple-gapi breakable-loop datapages-docx clopt datapages-import modular-rpc"
+        N="" @ --exclude=node_modules
 
         # echo Trying new port/proxy, harmless if dup
         # export PORT LOCATION
         # configure-server-app $TARGET
 
-        # echo Pushing to $DESTDIR
+        echo Pushing to /proxy_pass/$PORT
         # rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/proxy_pass/$PORT || exit 1
-        ssh root@$TARGET mkdir -p $DESTDIR || exit 1
-        rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:$DESTDIR || exit 1
-        (cd ~/Repos; rsync -avR $MODS --exclude=".*" --exclude=OLD root@$TARGET:$DESTDIR/node_modules) || exit 1
+        rsync -avR . $N "--exclude=.*" --exclude=OLD root@$TARGET:/proxy_pass/$PORT || exit 1
+        (cd ~/Repos; rsync -avR datapages-auto datapages-base config-state --exclude=".*" root@$TARGET:/proxy_pass/$PORT/node_modules) || exit 1
 
 
         # check auth and add ssh host so "npm update" can install
@@ -60,26 +45,27 @@ while true; do
         if [ "$AFTER" != "" ]; then
             eval "$AFTER" || exit 1
         fi
-
-        SNAME=$(echo $NAME | sed 's/datapages-//')
+        
         echo
-        echo "## Consider something like ADJUSTED FOR TEST/PROD"
+        echo "## Consider something like:"
         echo
         echo ssh root@$TARGET
-        echo cd $DESTDIR
+        echo "cd /proxy_pass/$PORT ; export PORT=$PORT ; export SITEURL=$SITEURL"
         echo "pm2 status"
         echo
         echo "node run # check for errors"
-        echo "pm2 stop $SNAME"
-        echo "pm2 start --name $SNAME run.js"
+        echo "pm2 stop prod"
+        echo "pm2 start --name prod run.js"
+        echo " or "
+        echo "pm2 start run.js"
         echo
         echo pm2 save
         echo
         echo '## Or just:'
-        echo ssh root@$TARGET pm2 restart $SNAME
-        # echo ssh root@$TARGET '". .nvm/nvm.sh; pm2 restart' $SNAME'"'
+        echo ssh $TARGET '". .nvm/nvm.sh; pm2 restart prod"'
         echo
-        # echo firefox --new-window $SITEURL
+        echo firefox --new-window $SITEURL
+
         exit 0
     fi
     echo "push-to-server: missing config in $PWD"
@@ -92,7 +78,10 @@ cat > .push-to-server <<_END
 # These are shell variables for push-to-server
 
 # Hostname to push to
-TARGET=FILLMEIN.wtbl.company
+TARGET=example.com
+
+# Where on that host are we handling
+# LOCATION=/
 
 #  Additional bits of script, can include cd before rsync
 # BUILD='npm build && cd dist'
