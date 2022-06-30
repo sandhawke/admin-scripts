@@ -1,0 +1,45 @@
+#!/bin/bash
+
+echo -e '\n\n\n\n\n\n\n\n\n'
+
+cd ~/Repos
+
+# ls -t | head -20
+
+# headless-gdoc
+# tagwatch 
+# tree-of-trust 
+
+
+for x in  \
+admin-scripts \
+appmgr \
+current-time-website \
+emerj-spa \
+flextag \
+flextag-crypto \
+flextag-mapper \
+flextag-mapper-cli \
+flextag-parser \
+flextag-protocol \
+flextag-spec \
+flextag.org \
+flextagger \
+live-source \
+live-source-gdoc \
+live-source-proxy \
+square-quotes \
+tagdb 
+
+do
+echo
+echo "$(tput setaf 0)$(tput sgr 7)$(tput bold) $x $(tput sgr0)"
+echo
+git -C $x diff-index --quiet HEAD -- || echo uncommited changes in $x
+git -C $x status -s || echo uncommited changes in $x  
+# git -C $x log --since=3.days.ago --pretty=oneline
+git -C $x log -n 5 --oneline
+# from https://ma.ttias.be/pretty-git-log-in-one-line/
+# git -C $x log --since=5.days.ago --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit
+
+done

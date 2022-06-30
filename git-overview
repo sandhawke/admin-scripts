@@ -14,14 +14,15 @@ do
         # echo $x unmaintained 
         continue;
     fi
-echo
-echo "$(tput setaf 0)$(tput sgr 7)$(tput bold) $x $(tput sgr0)"
-git -C $x diff-index --quiet HEAD -- || echo uncommited changes in $x
-git -C $x status -s || echo uncommited changes in $x  
-# git -C $x log --since=3.days.ago --pretty=oneline
-git -C $x log -n 1 --oneline
-# from https://ma.ttias.be/pretty-git-log-in-one-line/
-# git -C $x log --since=5.days.ago --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit
+    if git -C $x diff-index --quiet HEAD -- && git -C $x status -s; then
+        echo "$(tput setaf 0)$(tput sgr 7)$(tput bold) $x $(tput sgr0)"
+        git -C $x log -n 1 --oneline
+    else
+        echo "$(tput setaf 0)$(tput sgr 7)$(tput bold)$(tput setaf 1) $x $(tput sgr0) uncommitted changes"
+        echo "cd ~/r/$x; git diff"
+        git -C $x status -s
+        echo
+fi
 
 done
 

@@ -1,0 +1,29 @@
+#!/bin/bash
+
+echo -e '\n\n\n\n'
+clear
+
+cd ~/Repos
+
+# all the repos that have had json or js activity in the past 45 days
+
+for x in $(find */*.json */*.js */*.md -mtime -60 | sed 's;/.*;;' | sort | uniq)
+do
+    if [ -f $x/UNMAINTAINED* ]; then
+        unm="$unm $x"
+        # echo $x unmaintained 
+        continue;
+    fi
+echo
+echo "$(tput setaf 0)$(tput sgr 7)$(tput bold) $x $(tput sgr0)"
+git -C $x diff-index --quiet HEAD -- || echo uncommited changes in $x
+git -C $x status -s || echo uncommited changes in $x  
+# git -C $x log --since=3.days.ago --pretty=oneline
+git -C $x log -n 1 --oneline
+# from https://ma.ttias.be/pretty-git-log-in-one-line/
+# git -C $x log --since=5.days.ago --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset' --abbrev-commit
+
+done
+
+echo
+echo flagged as unmaintained: $unm
