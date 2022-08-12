@@ -15,7 +15,7 @@ if [ "$BUILD" != "" ]; then
 fi
 
 N="" # --exclude=node_modules    KEEP EM WHILE NO BINARY
-MODS="datapages-auto datapages-base config-state datapages-fs datapages-blobs-s3 datapages-html datapages-image-scaler datapages-access-key simple-gapi breakable-loop datapages-docx clopt datapages-import modular-rpc datapages-cli datapages-rpc-server datapages-webserver datapages-bridge-email"
+MODS="datapages-auto datapages-base config-state datapages-fs datapages-blobs-s3 datapages-html datapages-image-scaler datapages-access-key simple-gapi breakable-loop datapages-docx clopt datapages-import modular-rpc datapages-cli datapages-rpc-server datapages-webserver datapages-bridge-email datapages-extruder datapages-jsx"
 
 # echo Trying new port/proxy, harmless if dup
 # export PORT LOCATION

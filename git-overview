@@ -5,7 +5,7 @@ clear
 
 cd ~/Repos
 
-# all the repos that have had json or js activity in the past 45 days
+# all the repos that have had json or js activity in the __  days
 
 for x in $(find */*.json */*.js */*.md -mtime -60 | sed 's;/.*;;' | sort | uniq)
 do
@@ -14,12 +14,15 @@ do
         # echo $x unmaintained 
         continue;
     fi
+    # printf '\n\n\n\n%s\n\n' "$x"
     if git -C $x diff-index --quiet HEAD -- && git -C $x status -s; then
         echo "$(tput setaf 0)$(tput sgr 7)$(tput bold) $x $(tput sgr0)"
         git -C $x log -n 1 --oneline
     else
-        echo "$(tput setaf 0)$(tput sgr 7)$(tput bold)$(tput setaf 1) $x $(tput sgr0) uncommitted changes"
-        echo "cd ~/r/$x; git diff"
+        echo "$(tput setaf 0)$(tput sgr 7)$(tput bold) $x UNCOMMITED $(tput sgr0) "
+        # echo "$(tput setaf 0)$(tput sgr 7)$(tput bold)$(tput setaf 1) $x $(tput sgr0) uncommitted changes"
+        # echo "$(tput sgr 7)$(tput bold)$(tput setaf 2)clear; cd ~/r/$x; git diff$(tput sgr0)"
+        echo "$(tput sgr 7)$(tput bold)$(tput setaf 2)clear; cd ~/r/$x; git diff; gaas; git commit; git push$(tput sgr0)"
         git -C $x status -s
         echo
 fi

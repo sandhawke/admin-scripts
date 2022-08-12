@@ -112,7 +112,7 @@ git remote add origin git@github.com:sandhawke/$name.git
 npm i
 
 # use gh api to create it?
-xdg-open https://github.com/new
+firefox https://github.com/new
 
 cat <<EOF
 # Name:
