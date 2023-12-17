@@ -1,0 +1,25 @@
+#!/bin/sh
+
+NOMINAL=expected-output
+
+NOW=$(date -Id)
+OUT=./_out_$NOW
+mkdir $OUT || exit 1
+for f in *.js; do
+  echo "running $f (in background)"
+  node $f </dev/null 1>$OUT/$f.stdout 2>$OUT/$f.stderr &
+done
+
+echo waiting for all jobs to complete
+wait
+
+if [ -d $NOMINAL ]; then
+  echo diff -r $NOMINAL $OUT
+  if diff -r $NOMINAL $OUT; then
+     echo "$(tput sgr 7)$(tput bold)$(tput setaf 2) All good! $(tput sgr0)"
+  else
+     echo '## some differences from expected output'
+  fi
+else
+  echo no $NOMINAL to compare against
+fi

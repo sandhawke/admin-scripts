@@ -22,7 +22,7 @@ do
         echo "$(tput setaf 0)$(tput sgr 7)$(tput bold) $x UNCOMMITED $(tput sgr0) "
         # echo "$(tput setaf 0)$(tput sgr 7)$(tput bold)$(tput setaf 1) $x $(tput sgr0) uncommitted changes"
         # echo "$(tput sgr 7)$(tput bold)$(tput setaf 2)clear; cd ~/r/$x; git diff$(tput sgr0)"
-        echo "$(tput sgr 7)$(tput bold)$(tput setaf 2)clear; cd ~/r/$x; git diff; gaas; git commit; git push$(tput sgr0)"
+        echo "$(tput sgr 7)$(tput bold)$(tput setaf 2)clear; cd ~/r/$x; git diff; gaas; git commit $COMMITPARAM; git push$(tput sgr0)"
         git -C $x status -s
         echo
 fi
