@@ -4,6 +4,28 @@ NOMINAL=expected-output
 
 NOW=$(date -Id)
 OUT=./_out_$NOW
+
+# check for -f in args
+found_f=false
+
+for arg in "$@"
+do
+    if [ "$arg" = "-f" ]; then
+        found_f=true
+        break
+    fi
+done
+
+# Check if -f was found
+if $found_f; then
+    rm -rf $OUT
+fi
+
+if [ -e $OUT ];then
+    echo "$OUT exists. Maybe you want to run with '-f'"
+    exit 1
+fi
+
 mkdir $OUT || exit 1
 for f in *.js; do
   echo "running $f (in background)"
