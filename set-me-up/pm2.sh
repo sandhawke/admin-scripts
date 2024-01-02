@@ -18,6 +18,12 @@ if ! node --version; then
     nvm install $VERSION
     nvm use $VERSION
 
+    # Bit of a hack. The default .bashrc on debian11 (at least) bails
+    # out about 5 lines in if it's a non-interactive shell. This means when
+    # we execute a command via ssh, nvm isn't available.  So let's fix that.
+    # Because... blinding editing .bashrc is the bomb.
+    sed -i '1i\ \n# Load NVM even when non-interactive\nexport NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"\n' $HOME/.bashrc
+    
     echo '=== nvm in use'
 fi
 

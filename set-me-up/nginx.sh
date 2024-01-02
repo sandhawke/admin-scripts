@@ -1,3 +1,4 @@
+# usually invoked from static.sh
 
 mkdir -m 755 -p /sites/$HOST
 echo "server set up $(date -Ru)" > /sites/$HOST/index.html

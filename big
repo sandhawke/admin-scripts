@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# execute command but have the output piped through "less" with colors and
+# horizontal scrolling
+
+DEBUG_COLORS=1 "$@" 2>&1 | less -SR
