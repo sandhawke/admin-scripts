@@ -111,7 +111,14 @@ git remote add origin git@github.com:sandhawke/$name.git
 # dont need npm init any more!
 npm i
 
-# use gh api to create it?
+if gh --version; then
+    gh repo create "$name" --private --description "$desc"
+    cd $PWD
+    git push -u origin main
+    exec bash
+fi    
+
+echo "Missing gh cli, using browser"
 firefox https://github.com/new
 
 cat <<EOF
