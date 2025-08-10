@@ -1,0 +1,19 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+    echo "Usage: host-delete <hostname>"
+    echo "Available hosts:"
+    doctl compute droplet list --format Name --no-header
+    exit 1
+fi
+
+H="$1"
+
+# Check if droplet exists
+if ! doctl compute droplet list --format Name --no-header | grep -q "^$H$"; then
+    echo "Error: Droplet '$H' not found"
+    exit 1
+fi
+
+echo "Deleting droplet: $H"
+doctl compute droplet delete "$H" --force

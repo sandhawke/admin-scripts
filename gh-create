@@ -1,0 +1,51 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ ! -d ".git" ]; then
+    echo "Error: Not a git repository. Please run 'git init' first."
+    exit 1
+fi
+
+if [ ! -f "package.json" ]; then
+    echo "Error: package.json not found in current directory."
+    exit 1
+fi
+
+# Check if jq is installed
+if ! command -v jq &> /dev/null; then
+    echo "Error: jq is required but not installed. Please install jq first."
+    exit 1
+fi
+
+# Check if gh is installed
+if ! command -v gh &> /dev/null; then
+    echo "Error: GitHub CLI (gh) is required but not installed. Please install gh first."
+    exit 1
+fi
+
+# Read name and description from package.json
+name=$(jq -r .name package.json)
+desc=$(jq -r .description package.json)
+
+# Verify we got valid values
+if [ "$name" = "null" ] || [ -z "$name" ]; then
+    echo "Error: Could not find 'name' in package.json"
+    exit 1
+fi
+
+if [ "$desc" = "null" ]; then
+    desc=""  # Set empty description if none provided
+fi
+
+# Create the repository and push
+echo "Creating repository '$name' with description: $desc"
+gh repo create "$name" --private --description "$desc" && \
+git push -u origin main
+
+exit_code=$?
+if [ $exit_code -eq 0 ]; then
+    echo "Repository created and code pushed successfully!"
+else
+    echo "Error: Failed to create repository or push code"
+    exit $exit_code
+fi

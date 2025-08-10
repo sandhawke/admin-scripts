@@ -1,0 +1,48 @@
+#!/bin/bash
+
+set -euo pipefail
+
+HOSTNAME="${1:-}"
+IP="${2:-}"
+
+# Validate inputs
+if [[ -z "$HOSTNAME" ]]; then
+    echo "Usage: $0 <hostname> [ip]"
+    echo "  Add/update:  $0 myserver 1.2.3.4"
+    echo "  Remove:      $0 myserver"
+    exit 1
+fi
+
+SSH_CONFIG="$HOME/.ssh/config"
+
+# Create SSH config if it doesn't exist
+if [[ ! -f "$SSH_CONFIG" ]]; then
+    touch "$SSH_CONFIG"
+fi
+
+# Create backup with timestamp
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+cp "$SSH_CONFIG" "${SSH_CONFIG}.backup_${TIMESTAMP}"
+
+# Remove existing entry for this hostname
+sed -i "/# droplet-create\/start\/$HOSTNAME/,/# droplet-create\/end\/$HOSTNAME/d" "$SSH_CONFIG"
+
+if [[ -n "$IP" ]]; then
+    # Add new entry
+    SSH_ENTRY="
+# droplet-create/start/$HOSTNAME
+Host $HOSTNAME
+    ForwardAgent no  # droplet-create/added/$HOSTNAME
+    HostName $IP  # droplet-create/added/$HOSTNAME
+    User ${USER}  # droplet-create/added/$HOSTNAME
+    StrictHostKeyChecking no  # droplet-create/added/$HOSTNAME
+# droplet-create/end/$HOSTNAME
+"
+    echo "$SSH_ENTRY" >> "$SSH_CONFIG"
+    echo "SSH config updated: $HOSTNAME -> $IP"
+    echo "Connect with: ssh $HOSTNAME"
+else
+    echo "SSH config entry removed for: $HOSTNAME"
+fi
+
+echo "Backup saved: ${SSH_CONFIG}.backup_${TIMESTAMP}"

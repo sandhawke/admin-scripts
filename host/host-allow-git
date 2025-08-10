@@ -1,0 +1,24 @@
+#!/bin/bash
+
+HOST="$1"
+
+if [ -z "$HOST" ]; then
+  echo "usage $0 <hostname>"
+  exit 1
+fi
+
+ID=ai-$HOST-$(uuidgen -r | cut -c 1-8)
+file=/home/sandro/gitolite-admin/keydir/$ID.pub
+
+if [ -f $file ]; then
+  echo "File $file already exists - very unusual"
+  exit 1
+fi
+
+ssh $HOST 'ssh-keygen -N "" -f "$HOME/.ssh/id_ed25519" -t ed25519 -C aihost'
+
+
+ssh $HOST "cat .ssh/id_ed25519.pub" | sed "s/ aihost/ $ID/" > $file
+more $file
+(cd $(dirname $file); git add $file; git commit -m'host-allow-git script'; git push)
+
