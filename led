@@ -1,3 +1,4 @@
 #!/bin/sh
+
 emacsclient-snapshot --alternate-editor="" -c -n "$@" 2>> /home/sandro/.emacs-errors &
 

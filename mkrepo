@@ -50,7 +50,6 @@ $desc
 _END
 git add README.md
 
-##     "coveralls": "export COVERALLS_REPO_TOKEN=\$(cat \$HOME/.coveralls-tokens/\$npm_package_name); npx tap --cov test*.js test/*.js"
 
 cat <<_END >> package.json
 {
@@ -60,11 +59,7 @@ cat <<_END >> package.json
   "description": "$desc",
   "main": "index.js",
   "scripts": {
-    "test": "npx standard && NODE_OPTIONS=--experimental-vm-modules npx jest --coverage",
-    "jest": "NODE_OPTIONS=--experimental-vm-modules npx jest"
-  },
-  "jest": {
-    "transform": {}
+    "test": "node --test --coverage"
   },
   "repository": {
     "type": "git",
@@ -80,7 +75,7 @@ cat <<_END >> package.json
   },
   "homepage": "https://github.com/sandhawke/$name#readme",
   "dependencies": {
-    "debug": "^4.3.1"
+    "debug": "^4.3.7"
   },
   "devDependencies": {
   }
@@ -111,24 +106,9 @@ git remote add origin git@github.com:sandhawke/$name.git
 # dont need npm init any more!
 npm i
 
-if gh --version; then
-    gh repo create "$name" --private --description "$desc"
-    cd $PWD
-    git push -u origin main
-    exec bash
-fi    
+echo "
+Consider:
 
-echo "Missing gh cli, using browser"
-firefox https://github.com/new
+cd $PWD && gh-create
 
-cat <<EOF
-# Name:
-$name
-# Description
-$desc
-# Try
-## was: cd $PWD; git push -u origin master
-cd $PWD; git push -u origin main
-npm docs
-
-EOF
+"
