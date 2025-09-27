@@ -8,7 +8,7 @@ if [ -z "$HOST" ]; then
 fi
 
 ID=ai-$HOST-$(uuidgen -r | cut -c 1-8)
-file=/home/sandro/gitolite-admin/keydir/$ID.pub
+file=/home/sandro/src/gitolite-admin/keydir/$ID.pub
 
 if [ -f $file ]; then
   echo "File $file already exists - very unusual"

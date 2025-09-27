@@ -29,7 +29,9 @@ IMAGE=196091866
 # SIZE=s-1vcpu-1gb
 SIZE=s-2vcpu-4gb
 time doctl compute droplet create $H --region nyc3 --image $IMAGE --size $SIZE --ssh-keys 49278150 --wait
-IP=$(doctl compute droplet list $H --format PublicIPv4 --no-header) && echo IP=$IP && while ! nc -z $IP 22; do sleep 1; done
+export IP=$(doctl compute droplet list $H --format PublicIPv4 --no-header)
+echo IP=$IP
+while ! nc -z $IP 22; do sleep 1; done
 ssh-name $H $IP
 
 echo adding host key to gitolite permissions for acorn repos
