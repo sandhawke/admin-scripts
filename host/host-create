@@ -23,16 +23,41 @@ if [ -z "$H" ]; then
     # List of hostnames to try
     hostnames=(petra venice denali bali banff aspen kyoto cork pisa lyon vail milan dublin lisbon athens berlin oslo zurich cairo tokyo madrid london paris rome denver)
 
+    # State file to track the last used hostname index
+    STATE_FILE="$HOME/.config/host-create/last-index"
+    mkdir -p "$(dirname "$STATE_FILE")"
+
     # Get list of existing droplets
     existing=$(doctl compute droplet list --format Name --no-header)
 
-    # Find first hostname that doesn't exist
-    for hostname in "${hostnames[@]}"; do
+    # Read last used index (default to -1 if file doesn't exist)
+    if [ -f "$STATE_FILE" ]; then
+        last_index=$(cat "$STATE_FILE")
+    else
+        last_index=-1
+    fi
+
+    # Try hostnames in round-robin order starting from the next index
+    total_hostnames=${#hostnames[@]}
+    attempts=0
+
+    while [ $attempts -lt $total_hostnames ]; do
+        # Get next index in sequence
+        next_index=$(( (last_index + 1) % total_hostnames ))
+        hostname="${hostnames[$next_index]}"
+
+        # Check if this hostname is available
         if ! echo "$existing" | grep -q "^$hostname$"; then
             H="$hostname"
-            echo "Using hostname: $H"
+            echo "Using hostname: $H (round-robin index: $next_index)"
+            # Save the index for next time
+            echo "$next_index" > "$STATE_FILE"
             break
         fi
+
+        # Move to next hostname
+        last_index=$next_index
+        attempts=$((attempts + 1))
     done
 
     if [ -z "$H" ]; then
