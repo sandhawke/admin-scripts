@@ -1,0 +1,12 @@
+#!/bin/bash
+
+HOST="$1"
+
+if [ -z "$HOST" ]; then
+  echo "usage $0 <hostname>"
+  exit 1
+fi
+
+ssh $HOST mkdir .secret-keys
+rsync -a $HOME/.secret-keys/openrouter $HOST:.secret-keys/openrouter
+

@@ -1,12 +1,31 @@
 #!/bin/bash
 
-if [ -z "$1" ]; then
+# Parse arguments
+BIG_FLAG=""
+H=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --big)
+            BIG_FLAG="true"
+            shift
+            ;;
+        *)
+            if [ -z "$H" ]; then
+                H="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [ -z "$H" ]; then
     # List of hostnames to try
     hostnames=(petra venice denali bali banff aspen kyoto cork pisa lyon vail milan dublin lisbon athens berlin oslo zurich cairo tokyo madrid london paris rome denver)
-    
+
     # Get list of existing droplets
     existing=$(doctl compute droplet list --format Name --no-header)
-    
+
     # Find first hostname that doesn't exist
     for hostname in "${hostnames[@]}"; do
         if ! echo "$existing" | grep -q "^$hostname$"; then
@@ -15,27 +34,36 @@ if [ -z "$1" ]; then
             break
         fi
     done
-    
+
     if [ -z "$H" ]; then
         echo "Error: All hostnames are already in use"
         exit 1
     fi
-else
-    H="$1"
 fi
 
 IMAGE=196091866
-# IMAGE=195441144 
-# SIZE=s-1vcpu-1gb
-SIZE=s-2vcpu-4gb
+IMAGE=201317005 # goldy5 - with dv
+IMAGE=201449233 # goldy6e
+# install acorn-nodejs, kinda working
+# claude --dangerously-skip-permissions
+IMAGE=202192586 # goldy7
+
+if [ "$BIG_FLAG" = "true" ]; then
+    SIZE=s-2vcpu-4gb
+    echo "Using larger instance size: $SIZE"
+else
+    SIZE=s-1vcpu-1gb
+fi
 time doctl compute droplet create $H --region nyc3 --image $IMAGE --size $SIZE --ssh-keys 49278150 --wait
 export IP=$(doctl compute droplet list $H --format PublicIPv4 --no-header)
 echo IP=$IP
 while ! nc -z $IP 22; do sleep 1; done
 ssh-name $H $IP
 
-echo adding host key to gitolite permissions for acorn repos
+echo adding host key to gitolite permissions, new account
 host-allow-git $H
+
+host-allow-openrouter $H
 
 echo $H is up!  Connecting...
 

@@ -1,13 +1,28 @@
 #!/bin/bash
 
 if [ -z "$1" ]; then
-    echo "Usage: host-delete <hostname>"
+    echo "Usage: host-delete <hostname> [--force]"
     echo "Available hosts:"
     doctl compute droplet list --format Name --no-header
     exit 1
 fi
 
 H="$1"
+FORCE_FLAG="$2"
+
+if [[ "$H" == gito ]]; then
+    echo 'are you nuts?'
+    exit 1
+fi
+    
+# Check if hostname contains a dot and require --force
+if [[ "$H" == *"."* ]] && [ "$FORCE_FLAG" != "--force" ]; then
+    echo "Error: Hostname '$H' contains a dot ('.')"
+    echo "This might be a fully qualified domain name."
+    echo "Use --force flag if you really want to delete it:"
+    echo "  host-delete '$H' --force"
+    exit 1
+fi
 
 # Check if droplet exists
 if ! doctl compute droplet list --format Name --no-header | grep -q "^$H$"; then
@@ -17,3 +32,4 @@ fi
 
 echo "Deleting droplet: $H"
 doctl compute droplet delete "$H" --force
+

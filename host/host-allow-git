@@ -15,7 +15,7 @@ if [ -f $file ]; then
   exit 1
 fi
 
-ssh $HOST 'ssh-keygen -N "" -f "$HOME/.ssh/id_ed25519" -t ed25519 -C aihost'
+ssh $HOST 'rm -f "$HOME/.ssh/id_ed25519"; ssh-keygen -N "" -f "$HOME/.ssh/id_ed25519" -t ed25519 -C aihost'
 
 
 ssh $HOST "cat .ssh/id_ed25519.pub" | sed "s/ aihost/ $ID/" > $file
