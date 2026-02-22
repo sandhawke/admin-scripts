@@ -3,6 +3,7 @@
 # Parse arguments
 BIG_FLAG=""
 H=""
+H_EXPLICIT=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -11,15 +12,15 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            if [ -z "$H" ]; then
-                H="$1"
+            if [ -z "$H_EXPLICIT" ]; then
+                H_EXPLICIT="$1"
             fi
             shift
             ;;
     esac
 done
 
-if [ -z "$H" ]; then
+if [ -z "$H_EXPLICIT" ]; then
     # List of hostnames to try
     hostnames=(petra venice denali bali banff aspen kyoto cork pisa lyon vail milan dublin lisbon athens berlin oslo zurich cairo tokyo madrid london paris rome denver)
 
@@ -64,6 +65,18 @@ if [ -z "$H" ]; then
         echo "Error: All hostnames are already in use"
         exit 1
     fi
+else
+    H="$H_EXPLICIT"
+    existing=$(doctl compute droplet list --format Name --no-header)
+    if echo "$existing" | grep -q "^$H$"; then
+        base="$H"
+        n=2
+        while echo "$existing" | grep -q "^${base}${n}$"; do
+            n=$((n + 1))
+        done
+        H="${base}${n}"
+        echo "Name '$base' already in use, using: $H"
+    fi
 fi
 
 IMAGE=196091866
@@ -72,6 +85,7 @@ IMAGE=201449233 # goldy6e
 # install acorn-nodejs, kinda working
 # claude --dangerously-skip-permissions
 IMAGE=202192586 # goldy7
+IMAGE=217873887 # goldy8
 
 if [ "$BIG_FLAG" = "true" ]; then
     SIZE=s-2vcpu-4gb
@@ -82,6 +96,13 @@ fi
 time doctl compute droplet create $H --region nyc3 --image $IMAGE --size $SIZE --ssh-keys 49278150 --wait
 export IP=$(doctl compute droplet list $H --format PublicIPv4 --no-header)
 echo IP=$IP
+
+source ~/.secret-keys/porkbun.env
+DOMAIN=$H.wkbl.dev
+porkbun-ip set auth.$DOMAIN $IP
+porkbun-ip set conj.$DOMAIN $IP
+porkbun-ip set $DOMAIN $IP
+
 while ! nc -z $IP 22; do sleep 1; done
 ssh-name $H $IP
 
@@ -89,6 +110,10 @@ echo adding host key to gitolite permissions, new account
 host-allow-git $H
 
 host-allow-openrouter $H
+host-allow-openai $H
+host-set-history $H
+
+ssh $H 'ssh-keyscan -t ed25519 git.wkbl.dev >> ~/.ssh/known_hosts'
 
 echo $H is up!  Connecting...
 

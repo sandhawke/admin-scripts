@@ -33,3 +33,8 @@ fi
 echo "Deleting droplet: $H"
 doctl compute droplet delete "$H" --force
 
+source ~/.secret-keys/porkbun.env
+DOMAIN=$H.wkbl.dev
+porkbun-ip delete auth.$DOMAIN
+porkbun-ip delete conj.$DOMAIN
+porkbun-ip delete $DOMAIN
