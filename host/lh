@@ -1,0 +1,8 @@
+#!/bin/bash
+
+limit=$(( $(tput lines) - 4 ))
+total=$(ls -alt | wc -l)
+ls --color=auto -alt | head -$limit
+if [ $total -gt $limit ]; then
+    echo "$(tput setaf 2)Showing latest $limit of $total entries$(tput sgr0)"
+fi

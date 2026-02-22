@@ -1,0 +1,19 @@
+#!/bin/bash
+
+HOST="$1"
+
+if [ -z "$HOST" ]; then
+  echo "usage $0 <hostname>"
+  exit 1
+fi
+
+cat <<_END > /tmp/hist
+claude --dangerously-skip-permissions
+codex --dangerously-bypass-approvals-and-sandbox
+ln -s ~/infra/repos ~/r
+git clone git@git.wkbl.dev:infra
+git clone git@git.wkbl.dev:infra && cd infra && bin/deploy
+_END
+
+
+scp /tmp/hist $HOST:.bash_history

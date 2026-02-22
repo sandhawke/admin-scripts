@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Get the current directory name
+repo_name=$(basename "$PWD")
+
+# Remove existing remotes if they exist (suppress errors if they don't)
+git remote remove gito 2>/dev/null
+git remote remove gh 2>/dev/null
+git remote remove both 2>/dev/null
+git remote remove internal 2>/dev/null
+git remote remove origin 2>/dev/null
+git remote remove github 2>/dev/null
+
+# Add gito remote (internal git server)
+git remote add gito "git@git.wkbl.dev:${repo_name}.git"
+
+# Add gh remote (GitHub)
+git remote add gh "git@github.com:sandhawke/${repo_name}.git"
+
+# Add both remote with both push URLs
+#git remote add both "git@git.wkbl.dev:${repo_name}.git"
+#git remote set-url --add --push both "git@git.wkbl.dev:${repo_name}.git"
+#git remote set-url --add --push both "git@github.com:sandhawke/${repo_name}.git"
+
+# Show the result
+echo "Remotes configured for repository: ${repo_name}"
+echo ""
+git remote -v
+
+git branch --set-upstream-to=gito/main main

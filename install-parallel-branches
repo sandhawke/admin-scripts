@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Configuration
+REPO_URL="${1:-}"
+INSTALL_DIR="${BRANCHES_INSTALL_DIR:-/tmp/branches-bin}"
+BIN_DIR="$INSTALL_DIR/bin"
+CHECKOUTS_DIR="$INSTALL_DIR/checkouts"
+
+# Validate arguments
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $0 <repo-url> <branch-spec> [<branch-spec> ...]"
+    echo ""
+    echo "Branch specs can be:"
+    echo "  branch-name          - use branch name as prefix"
+    echo "  branch-name=prefix   - use custom prefix"
+    echo ""
+    echo "Example: $0 git@github.com:user/acorn.git kyoto=k lyon=ly foo bar=b2"
+    echo "  This creates: k-acorn, ly-acorn, foo-acorn, b2-acorn"
+    echo ""
+    echo "Set BRANCHES_INSTALL_DIR to change install location (default: /tmp/branches-bin)"
+    exit 1
+fi
+
+shift  # Remove repo URL from args
+
+# Create directories
+mkdir -p "$BIN_DIR" "$CHECKOUTS_DIR"
+
+echo "Installing branches side-by-side..."
+echo "Repo: $REPO_URL"
+echo "Install dir: $INSTALL_DIR"
+echo "Bin dir: $BIN_DIR"
+echo ""
+
+# Process each branch spec
+for branch_spec in "$@"; do
+    # Parse branch=prefix or just branch
+    if [[ "$branch_spec" == *"="* ]]; then
+        branch="${branch_spec%%=*}"
+        prefix="${branch_spec##*=}"
+    else
+        branch="$branch_spec"
+        prefix="$branch_spec"
+    fi
+    
+    echo "=== Processing branch: $branch (prefix: $prefix) ==="
+    
+    BRANCH_DIR="$CHECKOUTS_DIR/$branch"
+    
+    # Clone the branch
+    if [ -d "$BRANCH_DIR" ]; then
+        echo "Directory $BRANCH_DIR already exists, skipping clone..."
+    else
+        echo "Cloning branch $branch..."
+        git clone "$REPO_URL" -b "$branch" "$BRANCH_DIR"
+    fi
+    
+    # Build
+    echo "Building $branch..."
+    cd "$BRANCH_DIR"
+    npm install
+    npm run build
+    
+    # Install packages globally to branch-specific prefix
+    NPM_PREFIX="$INSTALL_DIR/npm-global/$branch"
+    echo "Installing packages to $NPM_PREFIX..."
+    
+    for package_dir in packages/*; do
+        if [ -d "$package_dir" ] && [ -f "$package_dir/package.json" ]; then
+            echo "  Installing $(basename "$package_dir")..."
+            cd "$BRANCH_DIR/$package_dir"
+            npm install -g --prefix "$NPM_PREFIX"
+        fi
+    done
+    
+    # Link binaries from npm global bin directory
+    NPM_BIN_DIR="$NPM_PREFIX/bin"
+    if [ -d "$NPM_BIN_DIR" ]; then
+        echo "Linking binaries with prefix '$prefix'..."
+        for bin_path in "$NPM_BIN_DIR"/*; do
+            if [ -f "$bin_path" ] && [ -x "$bin_path" ]; then
+                # Get the binary filename
+                bin_name=$(basename "$bin_path")
+                
+                # Create prefixed symlink (e.g., k-acorn-whoami, ly-acorn-whoami)
+                link_name="$prefix-$bin_name"
+                
+                echo "  Linking $link_name -> $bin_path"
+                ln -sf "$bin_path" "$BIN_DIR/$link_name"
+            fi
+        done
+    else
+        echo "Warning: No binaries found in $NPM_BIN_DIR"
+    fi
+    
+    echo ""
+done
+
+echo "=== Installation complete! ==="
+echo ""
+echo "To use these binaries, add to your PATH:"
+echo "  export PATH=\"$BIN_DIR:\$PATH\""
+echo ""
+echo "Available binaries:"
+ls -1 "$BIN_DIR" | sed 's/^/  /'

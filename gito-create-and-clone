@@ -1,0 +1,27 @@
+#!/bin/bash
+
+REPO="$1"
+
+if [[ $PWD != ~/src ]]; then
+    echo Be in ~/src please
+    exit 1
+fi
+
+if [[ "$REPO" == "src" ]]; then
+   echo bad repo name $REPO
+   exit 1
+fi
+if [[ "$REPO" == "" ]]; then
+   echo bad repo name $REPO
+   exit 1
+fi
+if [[ "$REPO" == "sandro" ]]; then
+   echo bad repo name $REPO
+   exit 1
+fi
+
+(cd /home/sandro/src/gitolite-admin && echo "@repos = $REPO" >> conf/gitolite.conf && git add conf/gitolite.conf && git commit -m'running gito-add-repo' && git push)
+
+git clone git@git.wkbl.dev:$REPO.git
+
+

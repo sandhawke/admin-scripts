@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Usage: wait-for-host <hostname> <expected-ip> [interval_seconds]
+HOST="${1:?Usage: $0 <hostname> <expected-ip> [interval]}"
+EXPECTED="${2:?Usage: $0 <hostname> <expected-ip> [interval]}"
+INTERVAL="${3:-5}"
+
+echo "Waiting for $HOST to resolve to $EXPECTED..."
+while true; do
+    IP=$(getent hosts "$HOST" 2>/dev/null | awk '{print $1}')
+    if [[ "$IP" == "$EXPECTED" ]]; then
+        echo "$HOST -> $IP"
+        break
+    elif [[ -n "$IP" ]]; then
+        echo "  $(date '+%H:%M:%S') resolves to $IP (want $EXPECTED), retrying in ${INTERVAL}s..."
+    else
+        echo "  $(date '+%H:%M:%S') no address yet, retrying in ${INTERVAL}s..."
+    fi
+    sleep "$INTERVAL"
+done

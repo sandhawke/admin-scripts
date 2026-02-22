@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+# https://claude.ai/chat/be0f7a95-41e2-44b3-bef1-08fef60ca07cimport os
+import sys
+import subprocess
+import argparse
+from pathlib import Path
+
+def find_available_port(start_port=3000):
+    """Find the next available port starting from start_port."""
+    import socket
+    
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(('localhost', start_port))
+                return start_port
+            except OSError:
+                start_port += 1
+
+def run_pen(file_path, port):
+    """Run pen for a specific file on a given port."""
+    try:
+        return subprocess.Popen(['pen', '-p', str(port), file_path])
+    except FileNotFoundError:
+        print(f"Error: 'pen' command not found. Please ensure it's installed.")
+        sys.exit(1)
+
+def main():
+    parser = argparse.ArgumentParser(description='Run multiple pen instances for Markdown files.')
+    parser.add_argument('files', nargs='+', help='Markdown files to view')
+    parser.add_argument('--start-port', type=int, default=3000, 
+                       help='Starting port number (default: 3000)')
+    
+    args = parser.parse_args()
+    processes = []
+    
+    for file_path in args.files:
+        if not Path(file_path).exists():
+            print(f"Warning: File {file_path} not found, skipping...")
+            continue
+            
+        port = find_available_port(args.start_port)
+        process = run_pen(file_path, port)
+        processes.append((process, port, file_path))
+        args.start_port = port + 1
+        
+        print(f"Started pen for {file_path} on http://localhost:{port}")
+    
+    try:
+        # Wait for user to press Ctrl+C
+        print("\nPress Ctrl+C to stop all instances...")
+        for proc, _, _ in processes:
+            proc.wait()
+    except KeyboardInterrupt:
+        print("\nStopping all pen instances...")
+        for proc, port, file_path in processes:
+            proc.terminate()
+            print(f"Stopped pen instance for {file_path} on port {port}")
+
+if __name__ == "__main__":
+    main()

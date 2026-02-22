@@ -1,0 +1,31 @@
+#!/bin/bash
+
+REPO="$(basename "$PWD")"
+
+if [[ "$REPO" == "" ]]; then
+   echo bad repo name $REPO
+   exit 1
+fi
+
+if [[ "$REPO" == "sandro" ]]; then
+   echo bad repo name $REPO
+   exit 1
+fi
+
+if [[ -d .git ]]; then
+    echo "yay we have .git"
+else
+    echo "no .git here"
+    exit 1
+fi
+  
+
+(cd /home/sandro/src/gitolite-admin && echo "@repos = $REPO" >> conf/gitolite.conf && git add conf/gitolite.conf && git commit -m'running gito-add-repo' && git push)
+
+echo consider:
+echo 'gh repo create $(basename "$PWD") --private --source=. --remote=gh --push'
+echo 'git-reset-remote-urls'
+echo 'git push gito'
+echo 'git push gh'
+
+

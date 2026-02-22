@@ -1,0 +1,28 @@
+#!/bin/bash
+
+echo "Configuring laptop-only mode..."
+
+# Set laptop screen as the only active display
+xrandr --output eDP --mode 1920x1080 --pos 0x0 --rotate normal --primary \
+       --output DVI-I-1-1 --off \
+       --output DVI-I-2-2 --off \
+       --output HDMI-A-0 --off
+
+echo sleeping 2
+sleep 2
+
+# Move any off-screen windows back to the laptop screen
+for win_id in $(xdotool search --onlyvisible --name "." 2>/dev/null | head -20); do
+    # Get window position
+    eval $(xdotool getwindowgeometry --shell "$win_id" 2>/dev/null) || continue
+    
+    # If window is off-screen (X > 1920 or Y > 1080), move it back
+    if [ "$X" -gt 1920 ] || [ "$Y" -gt 1080 ]; then
+        # Move to a visible position
+        new_x=$((X % 1920))
+        new_y=$((Y % 1080))
+        [ "$new_x" -lt 0 ] && new_x=100
+        [ "$new_y" -lt 0 ] && new_y=100
+        xdotool windowmove "$win_id" "$new_x" "$new_y" 2>/dev/null || true
+    fi
+done

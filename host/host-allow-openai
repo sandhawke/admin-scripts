@@ -1,0 +1,12 @@
+#!/bin/bash
+
+HOST="$1"
+
+if [ -z "$HOST" ]; then
+  echo "usage $0 <hostname>"
+  exit 1
+fi
+
+ssh $HOST mkdir -p ~/.codex
+rsync -a $HOME/.codex/auth.json $HOST:.codex/auth.json 
+

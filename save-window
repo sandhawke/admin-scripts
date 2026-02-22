@@ -1,0 +1,5 @@
+#!/bin/bash
+
+notify-send -t 300 Saving
+xfce4-screenshooter --save /home/sandro/Screenshots/window_$(date -Iseconds).png --window
+notify-send -t 1500 Saved

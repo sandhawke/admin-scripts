@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Audio Reset Script
+# Resets PipeWire/WirePlumber audio system and configures default settings
+
+echo "🔧 Resetting audio system..."
+
+# Restart PipeWire services
+echo "Restarting PipeWire services..."
+systemctl --user restart pipewire wireplumber
+
+# Wait for services to fully start
+sleep 3
+
+# Set audio sink priority: USB Audio first, then built-in (avoid HDMI)
+echo "Setting default audio sink..."
+
+# Try USB Audio first (when speakers are plugged in)
+USB_SINK=$(pactl list sinks short | grep -E "usb.*Realtek|USB.*Audio" | grep -v HDMI | head -1 | cut -f2)
+BUILTIN_SINK="alsa_output.pci-0000_03_00.6.HiFi__hw_Generic_1__sink"
+
+if [ ! -z "$USB_SINK" ] && pactl set-default-sink "$USB_SINK" 2>/dev/null; then
+    echo "✓ Using USB Audio: $USB_SINK"
+elif pactl set-default-sink "$BUILTIN_SINK" 2>/dev/null; then
+    echo "✓ Using built-in audio: $BUILTIN_SINK"
+else
+    echo "⚠ Warning: Could not set default sink, using system default"
+fi
+
+# Configure volume and unmute
+echo "Configuring audio settings..."
+pactl set-sink-volume @DEFAULT_SINK@ 50%
+pactl set-sink-mute @DEFAULT_SINK@ false
+
+# Show current status
+echo "✅ Audio reset complete!"
+echo "Default sink: $(pactl info | grep "Default Sink" | cut -d' ' -f3-)"
+echo "Volume: $(pactl get-sink-volume @DEFAULT_SINK@ | grep -o '[0-9]*%' | head -1)"
+echo "Muted: $(pactl get-sink-mute @DEFAULT_SINK@ | cut -d' ' -f2)"
+
+# Optional: Test audio
+read -p "Test audio with speaker-test? (y/n): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Testing audio (2 seconds)..."
+    speaker-test -t wav -c 2 -l 1 -P 2
+fi
+
+echo "Audio system ready!"

@@ -1,0 +1,4 @@
+#!/bin/bash
+setxkbmap -layout us -option
+xdotool key Caps_Lock
+setxkbmap -layout us -option 'altwin:swap_alt_win,caps:ctrl_modifier'

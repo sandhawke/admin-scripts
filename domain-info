@@ -1,0 +1,13 @@
+#!/bin/bash
+
+DOMAIN=$1
+
+if [[ -z "$DOMAIN" ]]; then
+  echo "usage: $0 domain_name"
+  exit 1
+fi
+
+curl --request GET \
+	--url "https://domains-api.p.rapidapi.com/domains/$DOMAIN?mode=detailed" \
+	--header 'x-rapidapi-host: domains-api.p.rapidapi.com' \
+	--header 'x-rapidapi-key: 49de436307msh307186be42d3357p10275bjsna861d68bf5b7'

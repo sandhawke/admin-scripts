@@ -1,0 +1,63 @@
+#!/bin/bash
+
+set -e
+
+# Get the current fnm node version
+FNM_VERSION=$(fnm current)
+
+if [ -z "$FNM_VERSION" ]; then
+    echo "Error: No fnm node version is currently active"
+    echo "Run 'fnm use <version>' or 'fnm default <version>' first"
+    exit 1
+fi
+
+# Construct the path to the fnm installation
+FNM_BIN_PATH="$HOME/.local/share/fnm/node-versions/${FNM_VERSION}/installation/bin"
+
+if [ ! -d "$FNM_BIN_PATH" ]; then
+    echo "Error: fnm installation directory not found at $FNM_BIN_PATH"
+    exit 1
+fi
+
+# Binaries to link
+BINARIES=("node" "npm" "npx")
+
+# Target directory
+TARGET_DIR="/usr/local/bin"
+
+echo "Creating symlinks for Node.js ${FNM_VERSION} binaries in ${TARGET_DIR}..."
+
+for binary in "${BINARIES[@]}"; do
+    SOURCE="${FNM_BIN_PATH}/${binary}"
+    DEST="${TARGET_DIR}/${binary}"
+    
+    # Check if source exists
+    if [ ! -f "$SOURCE" ]; then
+        echo "Warning: ${binary} not found at ${SOURCE}, skipping"
+        continue
+    fi
+    
+    # Check if destination exists
+    if [ -e "$DEST" ] || [ -L "$DEST" ]; then
+        if [ -L "$DEST" ]; then
+            echo "Removing existing symlink: ${DEST}"
+            sudo rm "$DEST"
+        elif [ -f "$DEST" ]; then
+            echo "Error: ${DEST} is a regular file, not a symlink"
+            echo "Please remove it manually if you want to replace it"
+            exit 1
+        elif [ -d "$DEST" ]; then
+            echo "Error: ${DEST} is a directory"
+            echo "Please remove it manually if you want to replace it"
+            exit 1
+        fi
+    fi
+    
+    # Create the symlink
+    echo "Linking ${binary}: ${DEST} -> ${SOURCE}"
+    sudo ln -s "$SOURCE" "$DEST"
+done
+
+echo ""
+echo "Done! Node.js ${FNM_VERSION} is now hardcoded in ${TARGET_DIR}"
+echo "Note: fnm commands like 'fnm use' will no longer affect these binaries"

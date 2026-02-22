@@ -1,0 +1,460 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+import json
+import requests
+import argparse
+import concurrent.futures
+import time
+from pathlib import Path
+
+def get_owned_domains(api_key, secret):
+    """Get list of domains owned by the user"""
+    url = "https://api.porkbun.com/api/json/v3/domain/listAll"
+    data = {
+        "apikey": api_key,
+        "secretapikey": secret,
+        "includeLabels": True
+    }
+    
+    response = requests.post(url, json=data)
+    if response.status_code != 200:
+        print(f"Error retrieving domains: HTTP {response.status_code}")
+        return None
+    
+    result = response.json()
+    if result.get('status') != 'SUCCESS':
+        print(f"API Error: {result.get('message', 'Unknown error')}")
+        return None
+    
+    return [domain['domain'] for domain in result.get('domains', [])]
+
+def get_domain_and_subdomain(hostname, owned_domains):
+    """Split hostname into domain and subdomain parts using owned domains"""
+    parts = hostname.split('.')
+    
+    # Find the longest matching domain
+    for i in range(len(parts)):
+        candidate = '.'.join(parts[i:])
+        if candidate in owned_domains:
+            subdomain = '.'.join(parts[:i]) if i > 0 else ''
+            return candidate, subdomain
+    
+    raise ValueError(f"No owned domain found for hostname: {hostname}")
+
+def get_existing_records(domain, subdomain, api_key, secret):
+    """Get existing DNS records for the domain"""
+    url = f"https://api.porkbun.com/api/json/v3/dns/retrieve/{domain}"
+    data = {
+        "apikey": api_key,
+        "secretapikey": secret
+    }
+    
+    response = requests.post(url, json=data)
+    if response.status_code != 200:
+        print(f"Error retrieving records: HTTP {response.status_code}")
+        return None
+    
+    result = response.json()
+    if result.get('status') != 'SUCCESS':
+        print(f"API Error: {result.get('message', 'Unknown error')}")
+        return None
+    
+    # Filter for A records matching the subdomain
+    matching_records = []
+    for record in result.get('records', []):
+        if record.get('type') == 'A' and record.get('name') == subdomain:
+            matching_records.append(record)
+    
+    return matching_records
+
+def create_dns_record(domain, subdomain, ip, api_key, secret):
+    """Create a new DNS A record"""
+    url = f"https://api.porkbun.com/api/json/v3/dns/create/{domain}"
+    data = {
+        "apikey": api_key,
+        "secretapikey": secret,
+        "type": "A",
+        "name": subdomain,
+        "content": ip,
+        "ttl": "600"
+    }
+    
+    response = requests.post(url, json=data)
+    if response.status_code != 200:
+        print(f"Error creating record: HTTP {response.status_code}")
+        return False
+    
+    result = response.json()
+    if result.get('status') != 'SUCCESS':
+        print(f"API Error: {result.get('message', 'Unknown error')}")
+        return False
+    
+    print(f"Record updated successfully: {subdomain}.{domain} -> {ip}")
+    return True
+
+def delete_dns_record(domain, record_id, api_key, secret):
+    """Delete a DNS record"""
+    url = f"https://api.porkbun.com/api/json/v3/dns/delete/{domain}/{record_id}"
+    data = {
+        "apikey": api_key,
+        "secretapikey": secret
+    }
+    
+    response = requests.post(url, json=data)
+    if response.status_code != 200:
+        print(f"Error deleting record: HTTP {response.status_code}")
+        return False
+    
+    result = response.json()
+    return result.get('status') == 'SUCCESS'
+
+def check_domain_access(domain, api_key, secret, retries=2, quiet=False):
+    """Check if a domain has API access and return its records"""
+    url = f"https://api.porkbun.com/api/json/v3/dns/retrieve/{domain}"
+    data = {
+        "apikey": api_key,
+        "secretapikey": secret
+    }
+    
+    for attempt in range(retries + 1):
+        try:
+            response = requests.post(url, json=data, headers={'Content-Type': 'application/json'}, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('status') == 'SUCCESS':
+                    if not quiet:
+                        print(f"✓ {domain} has API access")
+                    return (domain, result.get('records', []))
+            elif response.status_code == 429:  # Rate limited
+                if not quiet:
+                    print(f"⚠ Rate limited for {domain}")
+                if attempt < retries:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                    continue
+                return None
+            elif response.status_code == 503:  # Service unavailable
+                if attempt < retries:
+                    if not quiet:
+                        print(f"⚠ Service unavailable for {domain}, retrying...")
+                    time.sleep(2 ** attempt)
+                    continue
+                if not quiet:
+                    print(f"✗ {domain} HTTP 503 (service unavailable)")
+                return None
+            else:
+                # Check if it's just API access disabled vs other error
+                try:
+                    result = response.json()
+                    if "not opted in to API access" in result.get('message', ''):
+                        return None  # Expected error, domain not API enabled
+                    else:
+                        if not quiet:
+                            print(f"✗ {domain} API error: {result.get('message', 'Unknown')}")
+                except:
+                    if not quiet:
+                        print(f"✗ {domain} HTTP {response.status_code}")
+                return None
+        except requests.RequestException as e:
+            if attempt < retries:
+                if not quiet:
+                    print(f"⚠ Request error for {domain}, retrying: {e}")
+                time.sleep(2 ** attempt)
+                continue
+            if not quiet:
+                print(f"✗ Request error for {domain}: {e}")
+            return None
+    
+    return None
+
+def get_cache_file():
+    """Get path to cache file"""
+    cache_dir = Path.home() / ".config" / "porkbun-ip"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / "domains.json"
+
+def save_domains_cache(domains_data):
+    """Save domains data to cache file"""
+    cache_file = get_cache_file()
+    with open(cache_file, 'w') as f:
+        json.dump(domains_data, f, indent=2)
+
+def load_domains_cache():
+    """Load domains data from cache file"""
+    cache_file = get_cache_file()
+    if cache_file.exists():
+        try:
+            with open(cache_file, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            pass
+    return {}
+
+def scan_domains_and_records(api_key, secret):
+    """Scan all domains and cache those with API access"""
+    owned_domains = get_owned_domains(api_key, secret)
+    if owned_domains is None:
+        return False
+    
+    print(f"\033[1mScanning API access for {len(owned_domains)} domains...\033[0m")
+    print()
+    
+    accessible_domains = {}
+    success_count = 0
+    failed_count = 0
+    no_access_count = 0
+    
+    # Check domains sequentially to avoid overwhelming the API
+    for i, domain in enumerate(owned_domains):
+        progress = f"({i+1}/{len(owned_domains)})"
+        print(f"\033[90m{progress:>12}\033[0m {domain:<30}", end=" ", flush=True)
+        
+        result = check_domain_access(domain, api_key, secret, quiet=True)
+        if result is not None:
+            domain_name, records = result
+            accessible_domains[domain_name] = records
+            
+            # Count A records
+            a_records = [r for r in records if r.get('type') == 'A']
+            record_count = len(a_records)
+            
+            if record_count > 0:
+                print(f"\033[92m✓ API access\033[0m - {record_count} A record{'s' if record_count != 1 else ''}")
+            else:
+                print(f"\033[93m✓ API access\033[0m - no A records")
+            success_count += 1
+        else:
+            print(f"\033[91m✗ no API access\033[0m")
+            no_access_count += 1
+        
+        time.sleep(0.5)  # Delay between requests to avoid overwhelming API
+    
+    print()
+    print(f"\033[1mScan Results:\033[0m")
+    print(f"  \033[92m✓ {success_count} domains with API access\033[0m")
+    print(f"  \033[91m✗ {no_access_count} domains without API access\033[0m")
+    print(f"  \033[90m📊 {success_count + no_access_count} total domains scanned\033[0m")
+    
+    if not accessible_domains:
+        print("\nNo domains have API access enabled.")
+        print("Enable API access in the Porkbun control panel for each domain you want to manage.")
+        return False
+    
+    # Save to cache
+    save_domains_cache(accessible_domains)
+    
+    # Show summary of accessible domains
+    print(f"\n\033[1mDomains with API access:\033[0m")
+    total_records = 0
+    for domain in sorted(accessible_domains.keys()):
+        records = accessible_domains[domain]
+        a_records = [r for r in records if r.get('type') == 'A']
+        record_count = len(a_records)
+        total_records += record_count
+        
+        if record_count > 0:
+            print(f"  \033[92m{domain}\033[0m ({record_count} A record{'s' if record_count != 1 else ''})")
+        else:
+            print(f"  \033[93m{domain}\033[0m (no A records)")
+    
+    print(f"\n\033[90mCached {len(accessible_domains)} domains with {total_records} total A records to {get_cache_file()}\033[0m")
+    return True
+
+def list_cached_domains():
+    """List domains from cache"""
+    cache_data = load_domains_cache()
+    if not cache_data:
+        print("No cached domains found. Run 'porkbun-ip scan' first.")
+        return False
+    
+    print(f"Cached domains (run 'porkbun-ip scan' to refresh):")
+    
+    for domain in sorted(cache_data.keys()):
+        records = cache_data[domain]
+        print(f"\n{domain}:")
+        
+        # Filter and display A records
+        a_records = [r for r in records if r.get('type') == 'A']
+        if not a_records:
+            print("  No A records found")
+        else:
+            for record in a_records:
+                name = record.get('name', '')
+                hostname = name if name else domain
+                ip = record.get('content', '')
+                ttl = record.get('ttl', '')
+                print(f"  {hostname} -> {ip} (TTL: {ttl})")
+    
+    return True
+
+def main():
+    parser = argparse.ArgumentParser(description='Manage DNS A records using Porkbun API')
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    # Scan command
+    scan_parser = subparsers.add_parser('scan', help='Scan all domains for API access and cache results')
+    
+    # List command
+    list_parser = subparsers.add_parser('list', help='List cached domains and A records')
+    list_parser.add_argument('domain', nargs='?', help='Specific domain to list (optional)')
+    
+    # Add command
+    add_parser = subparsers.add_parser('add', help='Add a new A record')
+    add_parser.add_argument('hostname', help='Hostname to add (e.g., sub.example.com)')
+    add_parser.add_argument('ip', help='IP address to set')
+    
+    # Update command
+    update_parser = subparsers.add_parser('update', help='Update an existing A record')
+    update_parser.add_argument('hostname', help='Hostname to update (e.g., sub.example.com)')
+    update_parser.add_argument('ip', help='IP address to set')
+
+    # Set command (upsert - create or update regardless of existing records)
+    set_parser = subparsers.add_parser('set', help='Create or replace an A record (upsert)')
+    set_parser.add_argument('hostname', help='Hostname to set (e.g., sub.example.com)')
+    set_parser.add_argument('ip', help='IP address to set')
+
+    # Delete command
+    delete_parser = subparsers.add_parser('delete', help='Delete all A records for a hostname')
+    delete_parser.add_argument('hostname', help='Hostname to delete (e.g., sub.example.com)')
+
+    args = parser.parse_args()
+    
+    # Show usage if no command provided
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+    
+    # Get API credentials from environment
+    api_key = os.environ.get('PORKBUN_APIKEY')
+    secret = os.environ.get('PORKBUN_SECRET')
+    
+    if not api_key or not secret:
+        print("Error: PORKBUN_APIKEY and PORKBUN_SECRET environment variables must be set")
+        sys.exit(1)
+    
+    # Handle scan command
+    if args.command == 'scan':
+        if scan_domains_and_records(api_key, secret):
+            sys.exit(0)
+        else:
+            sys.exit(1)
+    
+    # Handle list command
+    if args.command == 'list':
+        if args.domain:
+            # List specific domain (live query)
+            result = check_domain_access(args.domain, api_key, secret)
+            if result:
+                domain, records = result
+                print(f"\n{domain}:")
+                a_records = [r for r in records if r.get('type') == 'A']
+                if not a_records:
+                    print("  No A records found")
+                else:
+                    for record in a_records:
+                        name = record.get('name', '')
+                        hostname = name if name else domain
+                        ip = record.get('content', '')
+                        ttl = record.get('ttl', '')
+                        print(f"  {hostname} -> {ip} (TTL: {ttl})")
+                sys.exit(0)
+            else:
+                print(f"Domain {args.domain} does not have API access enabled or does not exist")
+                sys.exit(1)
+        else:
+            # List cached domains
+            if list_cached_domains():
+                sys.exit(0)
+            else:
+                sys.exit(1)
+    
+    # Handle delete command
+    if args.command == 'delete':
+        cache_data = load_domains_cache()
+        if not cache_data:
+            print("No cached domains found. Run 'porkbun-ip scan' first.")
+            sys.exit(1)
+        cached_domains = list(cache_data.keys())
+        try:
+            domain, subdomain = get_domain_and_subdomain(args.hostname, cached_domains)
+        except ValueError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
+        existing_records = get_existing_records(domain, subdomain, api_key, secret)
+        if existing_records is None:
+            sys.exit(1)
+        if not existing_records:
+            print(f"No A records found for {args.hostname}")
+            sys.exit(0)
+        for record in existing_records:
+            if delete_dns_record(domain, record.get('id'), api_key, secret):
+                print(f"Deleted record: {args.hostname} (ID {record.get('id')})")
+            else:
+                print(f"Failed to delete record ID {record.get('id')}")
+                sys.exit(1)
+        sys.exit(0)
+
+    # Handle add/update/set commands
+    if args.command in ['add', 'update', 'set']:
+        # Get cached domains for faster lookup
+        cache_data = load_domains_cache()
+        if not cache_data:
+            print("No cached domains found. Run 'porkbun-ip scan' first.")
+            sys.exit(1)
+        
+        cached_domains = list(cache_data.keys())
+        
+        try:
+            domain, subdomain = get_domain_and_subdomain(args.hostname, cached_domains)
+        except ValueError as e:
+            print(f"Error: {e}")
+            print("Available domains with API access:")
+            for d in sorted(cached_domains):
+                print(f"  {d}")
+            sys.exit(1)
+        
+        # Check for existing records
+        existing_records = get_existing_records(domain, subdomain, api_key, secret)
+        if existing_records is None:
+            sys.exit(1)
+        
+        if args.command == 'add':
+            if existing_records:
+                print(f"Error: A record already exists for {args.hostname}")
+                for record in existing_records:
+                    print(f"  ID: {record.get('id')}, IP: {record.get('content')}, TTL: {record.get('ttl')}")
+                print("Use 'update' command to modify existing records")
+                sys.exit(1)
+        
+        elif args.command == 'update':
+            if not existing_records:
+                print(f"Error: No A record found for {args.hostname}")
+                print("Use 'add' command to create a new record")
+                sys.exit(1)
+
+            # Delete existing records before creating new one
+            for record in existing_records:
+                if delete_dns_record(domain, record.get('id'), api_key, secret):
+                    print(f"Deleted existing record ID {record.get('id')}")
+                else:
+                    print(f"Failed to delete record ID {record.get('id')}")
+                    sys.exit(1)
+
+        elif args.command == 'set':
+            # Delete existing records if any, then create new one
+            for record in existing_records:
+                if delete_dns_record(domain, record.get('id'), api_key, secret):
+                    print(f"Deleted existing record ID {record.get('id')}")
+                else:
+                    print(f"Failed to delete record ID {record.get('id')}")
+                    sys.exit(1)
+
+        # Create new record
+        if create_dns_record(domain, subdomain, args.ip, api_key, secret):
+            sys.exit(0)
+        else:
+            sys.exit(1)
+
+if __name__ == '__main__':
+    main()
