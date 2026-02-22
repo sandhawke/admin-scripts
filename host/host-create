@@ -1,5 +1,7 @@
 #!/bin/bash
 
+START_TIME=$SECONDS
+
 # Parse arguments
 BIG_FLAG=""
 H=""
@@ -115,6 +117,14 @@ host-set-history $H
 
 ssh $H 'ssh-keyscan -t ed25519 git.wkbl.dev >> ~/.ssh/known_hosts'
 
-echo $H is up!  Connecting...
+ssh-keyscan -t ed25519 $DOMAIN >> ~/.ssh/known_hosts
 
-ssh $H
+ELAPSED=$((SECONDS - START_TIME))
+echo "Done in ${ELAPSED}s"
+echo "  ssh $H"
+wezterm ssh "$IP" &
+
+wait-for-host $DOMAIN $IP
+ELAPSED2=$((SECONDS - START_TIME))
+echo "$DOMAIN is ready, final time ${ELAPSED2}s"
+

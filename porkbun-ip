@@ -61,10 +61,12 @@ def get_existing_records(domain, subdomain, api_key, secret):
         print(f"API Error: {result.get('message', 'Unknown error')}")
         return None
     
-    # Filter for A records matching the subdomain
+    # Filter for A records matching the subdomain.
+    # Porkbun v3 may return name as full hostname (qa.wkbl.dev) or prefix only (qa).
+    full_hostname = f"{subdomain}.{domain}" if subdomain else domain
     matching_records = []
     for record in result.get('records', []):
-        if record.get('type') == 'A' and record.get('name') == subdomain:
+        if record.get('type') == 'A' and record.get('name') in (subdomain, full_hostname):
             matching_records.append(record)
     
     return matching_records
@@ -83,9 +85,13 @@ def create_dns_record(domain, subdomain, ip, api_key, secret):
     
     response = requests.post(url, json=data)
     if response.status_code != 200:
-        print(f"Error creating record: HTTP {response.status_code}")
+        try:
+            msg = response.json().get('message', response.text)
+        except Exception:
+            msg = response.text
+        print(f"Error creating record: HTTP {response.status_code}: {msg}")
         return False
-    
+
     result = response.json()
     if result.get('status') != 'SUCCESS':
         print(f"API Error: {result.get('message', 'Unknown error')}")

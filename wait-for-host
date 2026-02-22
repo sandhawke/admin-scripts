@@ -6,7 +6,7 @@ INTERVAL="${3:-5}"
 
 echo "Waiting for $HOST to resolve to $EXPECTED..."
 while true; do
-    IP=$(getent hosts "$HOST" 2>/dev/null | awk '{print $1}')
+    IP=$(dig +short "$HOST" @1.1.1.1 2>/dev/null | tail -1)
     if [[ "$IP" == "$EXPECTED" ]]; then
         echo "$HOST -> $IP"
         break
