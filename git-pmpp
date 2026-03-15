@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+set -x
+
+git checkout main
+
+git pull gito $1
+git merge --ff-only gito/$1
+git push gh
+git push gito

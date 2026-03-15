@@ -88,6 +88,7 @@ IMAGE=201449233 # goldy6e
 # claude --dangerously-skip-permissions
 IMAGE=202192586 # goldy7
 IMAGE=217873887 # goldy8
+IMAGE=218415186 # goldy9
 
 if [ "$BIG_FLAG" = "true" ]; then
     SIZE=s-2vcpu-4gb
@@ -95,36 +96,54 @@ if [ "$BIG_FLAG" = "true" ]; then
 else
     SIZE=s-1vcpu-1gb
 fi
-time doctl compute droplet create $H --region nyc3 --image $IMAGE --size $SIZE --ssh-keys 49278150 --wait
+
+DOMAIN=$H.wkbl.dev
+
+CONFIG=$HOME/host-create-tmp-$ # fails due to /tmp sandboxing $$(mktemp)
+cat <<_EOF > $CONFIG
+#cloud-config
+fqdn: $DOMAIN
+manage_etc_hosts: true
+_EOF
+# echo host data $CONFIG
+# cat $CONFIG
+
+time doctl compute droplet create $H --region nyc3 --image $IMAGE --size $SIZE --ssh-keys 49278150 --user-data-file "$CONFIG" --wait || exit
 export IP=$(doctl compute droplet list $H --format PublicIPv4 --no-header)
 echo IP=$IP
 
 source ~/.secret-keys/porkbun.env
-DOMAIN=$H.wkbl.dev
-porkbun-ip set auth.$DOMAIN $IP
-porkbun-ip set conj.$DOMAIN $IP
-porkbun-ip set $DOMAIN $IP
+# porkbun-ip set auth.$DOMAIN $IP
+porkbun-ip set conj.$DOMAIN $IP &
+porkbun-ip set $DOMAIN $IP &
 
 while ! nc -z $IP 22; do sleep 1; done
 ssh-name $H $IP
 
 echo adding host key to gitolite permissions, new account
-host-allow-git $H
+host-allow-git $H &
 
-host-allow-openrouter $H
-host-allow-openai $H
-host-set-history $H
+host-allow-openrouter $H &
+host-allow-openai $H &
+host-set-history $H &
 
-ssh $H 'ssh-keyscan -t ed25519 git.wkbl.dev >> ~/.ssh/known_hosts'
+ssh $H 'ssh-keyscan -t ed25519 git.wkbl.dev >> ~/.ssh/known_hosts' &
+
+# playwright wants the browser cache to be owned by the user :-(
+ssh $H 'sudo chown -R sandro:sandro /opt/ms-playwright/'
+
 
 ssh-keyscan -t ed25519 $DOMAIN >> ~/.ssh/known_hosts
+
+wait
 
 ELAPSED=$((SECONDS - START_TIME))
 echo "Done in ${ELAPSED}s"
 echo "  ssh $H"
+
+export WEZTERM_LOG="warn,window::os::x11::connection=error,wezterm_ssh::pty=error"
 wezterm ssh "$IP" &
 
-wait-for-host $DOMAIN $IP
 ELAPSED2=$((SECONDS - START_TIME))
 echo "$DOMAIN is ready, final time ${ELAPSED2}s"
 

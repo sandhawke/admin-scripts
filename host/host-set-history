@@ -10,10 +10,10 @@ fi
 cat <<_END > /tmp/hist
 claude --dangerously-skip-permissions
 codex --dangerously-bypass-approvals-and-sandbox
-ln -s ~/infra/repos ~/r
-git clone git@git.wkbl.dev:infra
-git clone git@git.wkbl.dev:infra && cd infra && bin/deploy
+codex --yolo
+git clone git@git.wkbl.dev:wkbl
+git clone git@git.wkbl.dev:wkbl && cd wkbl
+git clone git@git.wkbl.dev:wkbl && cd wkbl && ./DEPLOY.sh
 _END
-
 
 scp /tmp/hist $HOST:.bash_history

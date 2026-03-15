@@ -1,0 +1,7 @@
+#!/bin/bash
+
+HOSTS=$(doctl compute droplet list --format Name | sed '1,/gito/d')
+echo HOSTS=$HOSTS
+
+save-ai $HOSTS
+du -sh ~/save-ai

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+for HOST in "$@"; do
+  for AI in codex claude; do
+    echo "## saving .$AI on $HOST"
+    DIR="$HOME/save-ai/$HOST/$AI"
+    mkdir -p "$DIR"
+    rsync -av $HOST:.$AI/ "$DIR"
+  done
+done
+
+
