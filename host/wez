@@ -1,0 +1,16 @@
+#!/bin/bash
+
+HOST=$1
+
+if [[ "$HOST" == "" ]]; then
+  LINE=$(grep -E 'HostName .* # droplet-create/added' "$HOME/.ssh/config" | tail -1)
+  HOST=$(echo "$LINE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')
+  echo "using last-added ip $HOST"
+elif [[ ! "$HOST" =~ \. ]]; then
+  LINE=$(grep -E "HostName .* # droplet-create/added/$HOST$" "$HOME/.ssh/config")
+  HOST=$(echo "$LINE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+')
+  echo "resolved $1 -> $HOST"
+fi
+
+export WEZTERM_LOG="warn,window::os::x11::connection=error,wezterm_ssh::pty=error"
+wezterm ssh "$HOST" &
