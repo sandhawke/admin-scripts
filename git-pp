@@ -1,0 +1,4 @@
+#!/bin/bash
+
+git push gito
+git push gh

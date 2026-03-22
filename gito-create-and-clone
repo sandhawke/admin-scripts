@@ -23,5 +23,10 @@ fi
 (cd /home/sandro/src/gitolite-admin && echo "@repos = $REPO" >> conf/gitolite.conf && git add conf/gitolite.conf && git commit -m'running gito-add-repo' && git push)
 
 git clone git@git.wkbl.dev:$REPO.git
+cd "$REPO"
+git switch -c main
+git commit --allow-empty -m "Initial commit"
+git push -u origin main
 
-
+# ? on server
+#   git -C ~/repositories/$REPO.git symbolic-ref HEAD refs/heads/main

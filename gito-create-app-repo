@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -e
+
+if [[ -n $1 ]]; then
+    echo "Usage: $0
+
+Calls gito-create-and-clone with app-<next>
+"
+    exit 1
+fi
+
+max=$(ssh -q git@git.wkbl.dev | egrep ' R W\s+app-' | sed 's/.*app-//' | sort -nr | head -1)
+next=$(( $max + 1 ))
+app="app-$next"
+
+gito-create-and-clone "$app"
+
+echo "
+# Next steps on this machine
+cd $app
+
+# Next stops on other machines
+cd && git clone git@git.wkbl.dev:$app && cd $app
+bun install
+wkbl app publish
+
+"
