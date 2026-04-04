@@ -81,14 +81,13 @@ else
     fi
 fi
 
-IMAGE=196091866
-IMAGE=201317005 # goldy5 - with dv
-IMAGE=201449233 # goldy6e
-# install acorn-nodejs, kinda working
-# claude --dangerously-skip-permissions
-IMAGE=202192586 # goldy7
-IMAGE=217873887 # goldy8
-IMAGE=218415186 # goldy9
+IMAGE_ID_FILE="$HOME/.config/goldy/image-id.txt"
+if [[ ! -f "$IMAGE_ID_FILE" ]]; then
+    echo "Error: No image ID found at $IMAGE_ID_FILE"
+    echo "Run droplet/snapshot first."
+    exit 1
+fi
+IMAGE=$(cat "$IMAGE_ID_FILE" | tr -d '[:space:]')
 
 if [ "$BIG_FLAG" = "true" ]; then
     SIZE=s-2vcpu-4gb
