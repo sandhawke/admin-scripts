@@ -1,10 +1,13 @@
 #!/bin/bash
+echo "Use git-land instead"
+exit 1
+
 set -euo pipefail
 set -x
 
 git checkout main
 
-git pull gito $1
-git merge --ff-only gito/$1
+git fetch gito $1
+git merge --ff-only gito/$1 || git merge --no-edit gito/$1
 git push gh
 git push gito

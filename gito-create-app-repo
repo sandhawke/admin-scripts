@@ -19,10 +19,12 @@ gito-create-and-clone "$app"
 echo "
 # Next steps on this machine
 cd $app
+wkbl appdev ALL
+wkbl app publish
 
 # Next stops on other machines
 cd && git clone git@git.wkbl.dev:$app && cd $app
-bun install
+wkbl appdev ALL
 wkbl app publish
 
 "

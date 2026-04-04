@@ -1,0 +1,23 @@
+#!/bin/bash
+set -euo pipefail
+
+if [[ -z "${1-}" ]]; then
+    git fetch gito
+    branches=$(git branch -r --no-merged main --list 'gito/*' | grep -v -E 'gito/(main|master|HEAD)' || true)
+    if [[ -z "$branches" ]]; then
+        echo "No unlanded branches on gito."
+    else
+        echo "Branches on gito not yet merged into main:"
+        echo "$branches" | sed 's|^ *gito/|  |'
+        echo ""
+        echo "Run: git land <branch> to land one."
+    fi
+    exit 0
+fi
+
+git checkout main
+
+git fetch gito "$1"
+git merge --ff-only gito/"$1" || git merge --no-edit gito/"$1" || { git merge --abort; exit 1; }
+git push gh
+git push gito
