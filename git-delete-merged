@@ -1,0 +1,104 @@
+# Delete remote branches already merged into the base branch.
+# Usage: wkbl git-delete-merged [--remote <name>] [--base <ref>] [--confirm]
+#
+# By default this only prints the candidate branch names, one per line.
+# Pass --confirm to actually delete them from the remote.
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  wkbl git-delete-merged [--remote <name>] [--base <ref>] [--confirm]
+
+Options:
+  --remote <name>  Remote to inspect and update. Default: origin
+  --base <ref>     Base ref to compare against. Default: <remote>/main
+  --confirm        Delete the listed remote branches
+  --help, -h       Show this help
+
+Notes:
+  Without --confirm, this prints the candidate branch names, one per line.
+  Protected refs <remote>/HEAD and <remote>/<base-branch-name> are never deleted.
+EOF
+}
+
+die() {
+  echo "$*" >&2
+  exit 1
+}
+
+remote="origin"
+base=""
+confirm=0
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --remote)
+      [ "$#" -ge 2 ] || die "Missing value for --remote"
+      remote="$2"
+      shift 2
+      ;;
+    --base)
+      [ "$#" -ge 2 ] || die "Missing value for --base"
+      base="$2"
+      shift 2
+      ;;
+    --confirm)
+      confirm=1
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      die "Unknown option: $1"
+      ;;
+  esac
+done
+
+git remote get-url "$remote" >/dev/null 2>&1 || die "Unknown remote: $remote"
+
+if [ -z "$base" ]; then
+  base="$remote/main"
+fi
+
+git rev-parse --verify "$base" >/dev/null 2>&1 || {
+  git fetch "$remote" --prune >/dev/null 2>&1 || true
+  git rev-parse --verify "$base" >/dev/null 2>&1 || die "Base ref not found: $base"
+}
+
+git fetch "$remote" --prune >/dev/null
+
+base_branch_name="${base##*/}"
+
+branches=()
+while IFS= read -r ref; do
+  [ -n "$ref" ] || continue
+  case "$ref" in
+    "$remote"|"$remote/HEAD"|"$remote/$base_branch_name")
+      continue
+      ;;
+  esac
+
+  branch="${ref#"$remote/"}"
+  if git merge-base --is-ancestor "$ref" "$base"; then
+    branches+=("$branch")
+  fi
+done < <(git for-each-ref --format='%(refname:short)' "refs/remotes/$remote")
+
+if [ "${#branches[@]}" -eq 0 ]; then
+  if [ "$confirm" -eq 1 ]; then
+    echo "No merged remote branches to delete on $remote relative to $base."
+  fi
+  exit 0
+fi
+
+printf '%s\n' "${branches[@]}"
+
+if [ "$confirm" -eq 1 ]; then
+  for branch in "${branches[@]}"; do
+    git push "$remote" ":refs/heads/$branch"
+  done
+fi

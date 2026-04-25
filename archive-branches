@@ -1,0 +1,438 @@
+#!/usr/bin/env bun
+
+import path from "node:path";
+import { readFileSync } from "node:fs";
+import {
+  createDebug,
+  formatGitError,
+  isDebugEnabled,
+  isInfraRepo,
+  listRepoNames,
+  runGit,
+} from "../src/git-utils.ts";
+
+const repoRoot = path.resolve(import.meta.dir, "..");
+const reposDir = path.join(repoRoot, "repos");
+const DEFAULT_PREFIX = "archive";
+
+function usage(exitCode = 0) {
+  console.log("Usage:");
+  console.log("  bin/archive-branches <repo> <branch...>");
+  console.log("  bin/archive-branches <repo> --file branches.txt");
+  console.log("  bin/archive-branches <repo> --pattern '<regex>'");
+  console.log("  bin/archive-branches <repo> --merged");
+  console.log("  bin/archive-branches --all-repos --pattern '<regex>'");
+  console.log("");
+  console.log("Options:");
+  console.log(`  --prefix <name>       Archive prefix (default: ${DEFAULT_PREFIX}).`);
+  console.log("  --file <path>         Read branch names (one per line; # comments allowed).");
+  console.log("  --pattern <regex>     Select remote branches matching regex.");
+  console.log("  --merged              Archive branches merged into origin/main (or origin/HEAD).");
+  console.log("  --all-repos           Run against every repo in ./repos (excluding infra).");
+  console.log("  --keep-original       Keep original branches after archiving.");
+  console.log("  --delete-original     Delete original branches (default).");
+  console.log("  --include-main        Allow archiving the default branch.");
+  console.log("  --no-fetch            Skip fetching remotes before checking.");
+  console.log("  --dry-run             Print commands without running them.");
+  console.log("  --debug               Show git commands.");
+  process.exit(exitCode);
+}
+
+function die(message: string): never {
+  console.error(message);
+  process.exit(1);
+}
+
+type Options = {
+  repo: string | null;
+  branchArgs: string[];
+  file: string | null;
+  pattern: string | null;
+  merged: boolean;
+  allRepos: boolean;
+  prefix: string;
+  noFetch: boolean;
+  dryRun: boolean;
+  deleteOriginal: boolean;
+  includeMain: boolean;
+  debug: boolean;
+};
+
+function parseArgs(argv: string[]): Options {
+  let prefix = DEFAULT_PREFIX;
+  let noFetch = false;
+  let dryRun = false;
+  let deleteOriginal = true;
+  let includeMain = false;
+  let debug = false;
+  let file: string | null = null;
+  let pattern: string | null = null;
+  let merged = false;
+  let allRepos = false;
+  const positionals: string[] = [];
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--help" || arg === "-h") {
+      usage(0);
+    }
+    if (arg === "--no-fetch") {
+      noFetch = true;
+      continue;
+    }
+    if (arg === "--dry-run") {
+      dryRun = true;
+      continue;
+    }
+    if (arg === "--keep-original") {
+      deleteOriginal = false;
+      continue;
+    }
+    if (arg === "--delete-original") {
+      deleteOriginal = true;
+      continue;
+    }
+    if (arg === "--include-main") {
+      includeMain = true;
+      continue;
+    }
+    if (arg === "--merged") {
+      merged = true;
+      continue;
+    }
+    if (arg === "--all-repos") {
+      allRepos = true;
+      continue;
+    }
+    if (arg === "--debug") {
+      debug = true;
+      continue;
+    }
+    if (arg === "--prefix") {
+      const next = argv[i + 1];
+      if (!next || next.startsWith("-")) {
+        die("Missing value for --prefix.");
+      }
+      prefix = next;
+      i += 1;
+      continue;
+    }
+    if (arg === "--file") {
+      const next = argv[i + 1];
+      if (!next || next.startsWith("-")) {
+        die("Missing value for --file.");
+      }
+      file = next;
+      i += 1;
+      continue;
+    }
+    if (arg === "--pattern") {
+      const next = argv[i + 1];
+      if (!next || next.startsWith("-")) {
+        die("Missing value for --pattern.");
+      }
+      pattern = next;
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("-")) {
+      die(`Unknown option: ${arg}`);
+    }
+    positionals.push(arg);
+  }
+
+  const repo = positionals[0] ?? null;
+  const branchArgs = positionals.slice(1);
+
+  return {
+    repo,
+    branchArgs,
+    file,
+    pattern,
+    merged,
+    allRepos,
+    prefix,
+    noFetch,
+    dryRun,
+    deleteOriginal,
+    includeMain,
+    debug,
+  };
+}
+
+function parseRemoteBranchList(raw: string): string[] {
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.includes("->"))
+    .map((line) => line.replace(/^\*?\s*/, ""));
+}
+
+function normalizeBranchName(input: string): string {
+  let name = input.trim();
+  if (!name) return "";
+  name = name.replace(/^refs\/remotes\//, "");
+  name = name.replace(/^refs\/heads\//, "");
+  if (name.startsWith("origin/")) {
+    name = name.slice("origin/".length);
+  }
+  name = name.replace(/^\/+/, "").replace(/\/+$/, "");
+  return name;
+}
+
+function sanitizePrefix(value: string): string {
+  let prefix = value.trim();
+  if (!prefix) die("Archive prefix cannot be empty.");
+  prefix = prefix.replace(/^refs\/heads\//, "");
+  prefix = prefix.replace(/^origin\//, "");
+  prefix = prefix.replace(/^\/+/, "").replace(/\/+$/, "");
+  if (!prefix) die("Archive prefix cannot be empty.");
+  if (prefix.includes("..")) die("Archive prefix cannot include '..'.");
+  return prefix;
+}
+
+function resolveMainRef(repoPath: string): { ref: string; branch: string } | null {
+  const mainRef = git(["-C", repoPath, "rev-parse", "--verify", "origin/main"]);
+  if (mainRef.ok) {
+    return { ref: "origin/main", branch: "main" };
+  }
+
+  const headRef = git(["-C", repoPath, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
+  if (!headRef.ok || !headRef.output) return null;
+  const ref = headRef.output.trim();
+  if (!ref.startsWith("origin/")) return null;
+  const branch = ref.slice("origin/".length);
+  if (!branch) return null;
+  return { ref, branch };
+}
+
+const options = parseArgs(process.argv.slice(2));
+const debugLog = createDebug(isDebugEnabled(process.argv.slice(2)) || options.debug);
+const git = (args: string[], opts: { cwd?: string } = {}) =>
+  runGit(args, { ...opts, debug: debugLog });
+
+const prefix = sanitizePrefix(options.prefix);
+const archivePrefix = `${prefix}/`;
+const archiveRemotePrefix = `origin/${archivePrefix}`;
+const archiveRefPrefix = `refs/heads/${archivePrefix}`;
+
+const repos = listRepoNames(reposDir).filter((name) => !isInfraRepo(name));
+if (options.allRepos && options.repo) {
+  die("Use either --all-repos or a single repo name, not both.");
+}
+if (!options.allRepos && !options.repo) {
+  usage(1);
+}
+if (!options.allRepos && (!options.repo || !repos.includes(options.repo))) {
+  die(`Unknown repo: ${options.repo ?? "(missing)"}`);
+}
+if (options.allRepos && repos.length === 0) {
+  die("No repos found in ./repos (infra is excluded).");
+}
+if (
+  options.branchArgs.length === 0 &&
+  !options.file &&
+  !options.pattern &&
+  !options.merged
+) {
+  die("Provide branch names, --file, --pattern, or --merged.");
+}
+
+const fileBranches: string[] = [];
+if (options.file) {
+  const content = readFileSync(options.file, "utf8");
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const name = normalizeBranchName(trimmed);
+    if (name) fileBranches.push(name);
+  }
+}
+
+let patternRegex: RegExp | null = null;
+if (options.pattern) {
+  try {
+    patternRegex = new RegExp(options.pattern);
+  } catch (error) {
+    die(`Invalid regex for --pattern: ${String(error)}`);
+  }
+}
+
+const targetRepos = options.allRepos ? repos : [options.repo!];
+let anyErrors = false;
+let anyArchived = false;
+
+for (const repoName of targetRepos) {
+  const repoPath = path.join(reposDir, repoName);
+  const logPrefix = options.allRepos ? `${repoName}: ` : "";
+
+  if (!options.noFetch) {
+    const fetchResult = git(["-C", repoPath, "fetch", "--prune", "origin"]);
+    if (!fetchResult.ok) {
+      anyErrors = true;
+      console.error(`${logPrefix}fetch failed: ${formatGitError(fetchResult)}`);
+      continue;
+    }
+  }
+
+  const refsResult = git([
+    "-C",
+    repoPath,
+    "for-each-ref",
+    "refs/remotes/origin",
+    "--format=%(refname:short)",
+  ]);
+  if (!refsResult.ok) {
+    anyErrors = true;
+    console.error(`${logPrefix}refs failed: ${formatGitError(refsResult)}`);
+    continue;
+  }
+
+  const remoteRefs = parseRemoteBranchList(refsResult.output);
+  const remoteSet = new Set(remoteRefs);
+
+  const needsMainRef = options.merged || !options.includeMain;
+  const mainRef = needsMainRef ? resolveMainRef(repoPath) : null;
+  if (needsMainRef && !mainRef) {
+    anyErrors = true;
+    console.error(`${logPrefix}origin/main not found; cannot determine default branch.`);
+    continue;
+  }
+
+  const selected = new Set<string>();
+  for (const branch of options.branchArgs) {
+    const name = normalizeBranchName(branch);
+    if (name) selected.add(name);
+  }
+  for (const branch of fileBranches) {
+    selected.add(branch);
+  }
+  if (patternRegex) {
+    for (const ref of remoteRefs) {
+      if (!ref.startsWith("origin/")) continue;
+      if (ref === "origin/HEAD") continue;
+      const name = ref.slice("origin/".length);
+      if (patternRegex.test(name)) {
+        selected.add(name);
+      }
+    }
+  }
+  if (options.merged) {
+    const mergedResult = git(["-C", repoPath, "branch", "-r", "--merged", mainRef!.ref]);
+    if (!mergedResult.ok) {
+      anyErrors = true;
+      console.error(`${logPrefix}merged branch lookup failed: ${formatGitError(mergedResult)}`);
+      continue;
+    }
+    const mergedRefs = parseRemoteBranchList(mergedResult.output);
+    for (const ref of mergedRefs) {
+      if (!ref.startsWith("origin/")) continue;
+      if (ref === "origin/HEAD") continue;
+      const name = ref.slice("origin/".length);
+      selected.add(name);
+    }
+  }
+
+  const missing: string[] = [];
+  const protectedBranches: string[] = [];
+  const alreadyArchived: string[] = [];
+  const conflicts: string[] = [];
+  const toArchive: string[] = [];
+
+  for (const name of selected) {
+    const remoteName = `origin/${name}`;
+
+    if (!name) continue;
+    if (name.startsWith(archivePrefix)) {
+      alreadyArchived.push(name);
+      continue;
+    }
+    if (remoteName === "origin/HEAD") {
+      protectedBranches.push(name);
+      continue;
+    }
+    if (
+      mainRef &&
+      !options.includeMain &&
+      (name === mainRef.branch || remoteName === mainRef.ref)
+    ) {
+      protectedBranches.push(name);
+      continue;
+    }
+    if (!remoteSet.has(remoteName)) {
+      missing.push(name);
+      continue;
+    }
+    if (remoteSet.has(`${archiveRemotePrefix}${name}`)) {
+      conflicts.push(name);
+      continue;
+    }
+    toArchive.push(name);
+  }
+
+  if (missing.length > 0) {
+    anyErrors = true;
+    console.error(`${logPrefix}Missing remote branches (${missing.length}): ${missing.join(", ")}`);
+  }
+  if (protectedBranches.length > 0) {
+    anyErrors = true;
+    console.error(
+      `${logPrefix}Protected branches (${protectedBranches.length}): ${protectedBranches.join(", ")}`
+    );
+  }
+  if (alreadyArchived.length > 0) {
+    console.error(
+      `${logPrefix}Already archived (${alreadyArchived.length}): ${alreadyArchived.join(", ")}`
+    );
+  }
+  if (conflicts.length > 0) {
+    anyErrors = true;
+    console.error(
+      `${logPrefix}Archive already exists (${conflicts.length}): ${conflicts.join(", ")}`
+    );
+  }
+
+  if (toArchive.length === 0) {
+    console.log(`${logPrefix}No branches to archive.`);
+    continue;
+  }
+
+  anyArchived = true;
+  console.log(`${logPrefix}Archiving ${toArchive.length} branch(es):`);
+  for (const name of toArchive) {
+    const sourceRef = `origin/${name}`;
+    const destRef = `${archiveRefPrefix}${name}`;
+    if (options.dryRun) {
+      console.log(`${logPrefix}[dry-run] git -C ${repoPath} push origin ${sourceRef}:${destRef}`);
+      if (options.deleteOriginal) {
+        console.log(`${logPrefix}[dry-run] git -C ${repoPath} push origin --delete ${name}`);
+      }
+      continue;
+    }
+
+    const archiveResult = git(["-C", repoPath, "push", "origin", `${sourceRef}:${destRef}`]);
+    if (!archiveResult.ok) {
+      anyErrors = true;
+      console.error(`${logPrefix}Failed to archive ${sourceRef}: ${formatGitError(archiveResult)}`);
+      continue;
+    }
+    console.log(`  archived ${sourceRef} -> ${destRef}`);
+
+    if (options.deleteOriginal) {
+      const deleteResult = git(["-C", repoPath, "push", "origin", "--delete", name]);
+      if (!deleteResult.ok) {
+        anyErrors = true;
+        console.error(`${logPrefix}Failed to delete ${sourceRef}: ${formatGitError(deleteResult)}`);
+        continue;
+      }
+      console.log(`  deleted ${sourceRef}`);
+    }
+  }
+}
+
+if (!anyArchived && !anyErrors && options.allRepos) {
+  console.log("No branches to archive.");
+}
+
+process.exit(anyErrors ? 2 : 0);

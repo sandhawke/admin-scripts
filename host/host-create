@@ -4,6 +4,7 @@ START_TIME=$SECONDS
 
 # Parse arguments
 BIG_FLAG=""
+SMALL_FLAG=""
 H=""
 H_EXPLICIT=""
 
@@ -11,6 +12,10 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --big)
             BIG_FLAG="true"
+            shift
+            ;;
+        --small)
+            SMALL_FLAG="true"
             shift
             ;;
         *)
@@ -89,11 +94,14 @@ if [[ ! -f "$IMAGE_ID_FILE" ]]; then
 fi
 IMAGE=$(cat "$IMAGE_ID_FILE" | tr -d '[:space:]')
 
-if [ "$BIG_FLAG" = "true" ]; then
-    SIZE=s-2vcpu-4gb
-    echo "Using larger instance size: $SIZE"
-else
+SIZE=s-2vcpu-4gb
+if [ "$SMALL_FLAG" = "true" ]; then
     SIZE=s-1vcpu-1gb
+    echo "Using smaller instance size: $SIZE"
+fi
+if [ "$BIG_FLAG" = "true" ]; then
+    SIZE=s-2vcpu-8gb-amd
+    echo "Using larger instance size: $SIZE"
 fi
 
 DOMAIN=$H.wkbl.dev

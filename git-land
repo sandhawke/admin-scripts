@@ -3,7 +3,7 @@ set -euo pipefail
 
 if [[ -z "${1-}" ]]; then
     git fetch gito
-    branches=$(git branch -r --no-merged main --list 'gito/*' | grep -v -E 'gito/(main|master|HEAD)' || true)
+    branches=$(git branch -r --no-merged main --list 'gito/*' | grep -v 'gito/archive/' | grep -v -E 'gito/(main|master|HEAD)' || true)
     if [[ -z "$branches" ]]; then
         echo "No unlanded branches on gito."
     else

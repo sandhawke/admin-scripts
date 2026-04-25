@@ -72,7 +72,7 @@ def get_existing_records(domain, subdomain, api_key, secret):
     return matching_records
 
 def create_dns_record(domain, subdomain, ip, api_key, secret):
-    """Create a new DNS A record"""
+    """Create a new DNS A record and verify it was persisted"""
     url = f"https://api.porkbun.com/api/json/v3/dns/create/{domain}"
     data = {
         "apikey": api_key,
@@ -82,7 +82,7 @@ def create_dns_record(domain, subdomain, ip, api_key, secret):
         "content": ip,
         "ttl": "600"
     }
-    
+
     response = requests.post(url, json=data)
     if response.status_code != 200:
         try:
@@ -96,8 +96,23 @@ def create_dns_record(domain, subdomain, ip, api_key, secret):
     if result.get('status') != 'SUCCESS':
         print(f"API Error: {result.get('message', 'Unknown error')}")
         return False
-    
-    print(f"Record updated successfully: {subdomain}.{domain} -> {ip}")
+
+    full_hostname = f"{subdomain}.{domain}" if subdomain else domain
+
+    # Verify the record was actually created by reading it back
+    records = get_existing_records(domain, subdomain, api_key, secret)
+    if records is None:
+        print(f"Record created for {full_hostname} -> {ip} but verification read-back failed")
+        return True
+
+    verified = any(r.get('content') == ip and r.get('type') == 'A' for r in records)
+    if verified:
+        print(f"Record verified: {full_hostname} -> {ip}")
+    else:
+        found = [r.get('content') for r in records if r.get('type') == 'A']
+        print(f"WARNING: Record for {full_hostname} not verified! Expected {ip}, found: {found or 'no A records'}")
+        return False
+
     return True
 
 def delete_dns_record(domain, record_id, api_key, secret):

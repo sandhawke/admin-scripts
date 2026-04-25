@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Prefer "gito" remote, fall back to "origin"
+if git remote get-url gito >/dev/null 2>&1; then
+  ORIGIN=gito
+elif git remote get-url origin >/dev/null 2>&1; then
+  ORIGIN=origin
+else
+  ORIGIN=""
+fi
+
+usage() {
+  cat <<'EOF'
+Usage:
+  git-rename <old-branch> <new-branch>
+  git-rename <branch> --archive
+  git-rename --archive <branch>
+  git-rename --archive-all (--dry-run | --force)
+
+Renames a branch locally and/or on remote `$ORIGIN`. If the branch exists only
+on the remote, performs a server-side rename (no local checkout needed).
+
+--archive-all archives every branch other than main/master, the current branch,
+and branches already under archive/. Requires --dry-run or --force.
+
+Examples:
+  git-rename feature/login feature/auth-login
+  git-rename feature/login --archive
+  git-rename --archive-all --dry-run
+  git-rename --archive-all --force
+EOF
+}
+
+die() {
+  printf 'git-rename: %s\n' "$*" >&2
+  exit 1
+}
+
+require_git_repo() {
+  git rev-parse --git-dir >/dev/null 2>&1 || die 'not inside a git repository'
+}
+
+branch_exists_local() {
+  git show-ref --verify --quiet "refs/heads/$1"
+}
+
+branch_exists_remote() {
+  git ls-remote --exit-code --heads "$ORIGIN" "$1" >/dev/null 2>&1
+}
+
+remote_tracking_exists() {
+  git show-ref --verify --quiet "refs/remotes/$ORIGIN/$1"
+}
+
+require_valid_branch_name() {
+  git check-ref-format --branch "$1" >/dev/null 2>&1 || die "invalid branch name: $1"
+}
+
+rename_one() {
+  local old_branch="$1" new_branch="$2"
+
+  require_valid_branch_name "$old_branch"
+  require_valid_branch_name "$new_branch"
+  [[ "$old_branch" != "$new_branch" ]] || die 'old and new branch names must differ'
+
+  local has_local=0 has_remote=0
+  branch_exists_local "$old_branch" && has_local=1
+  branch_exists_remote "$old_branch" && has_remote=1
+
+  if [[ $has_local -eq 0 && $has_remote -eq 0 ]]; then
+    die "branch does not exist locally or on $ORIGIN: $old_branch"
+  fi
+
+  ! branch_exists_local "$new_branch" || die "local branch already exists: $new_branch"
+  ! branch_exists_remote "$new_branch" || die "remote branch already exists on $ORIGIN: $new_branch"
+
+  if [[ $has_local -eq 1 ]]; then
+    git branch -m "$old_branch" "$new_branch"
+    git push "$ORIGIN" "refs/heads/$new_branch:refs/heads/$new_branch"
+    git branch --set-upstream-to="$ORIGIN/$new_branch" "$new_branch" >/dev/null
+    if [[ $has_remote -eq 1 ]]; then
+      git push "$ORIGIN" --delete "$old_branch"
+    fi
+    printf "Renamed %s -> %s locally and on %s\n" "$old_branch" "$new_branch" "$ORIGIN"
+  else
+    # Remote-only: server-side rename using the remote-tracking ref as source.
+    remote_tracking_exists "$old_branch" || git fetch "$ORIGIN" "$old_branch" >/dev/null 2>&1 || true
+    if remote_tracking_exists "$old_branch"; then
+      git push "$ORIGIN" "refs/remotes/$ORIGIN/$old_branch:refs/heads/$new_branch"
+    else
+      # Fall back to piping through a temporary local ref via ls-remote sha.
+      local sha
+      sha=$(git ls-remote "$ORIGIN" "refs/heads/$old_branch" | awk '{print $1}')
+      [[ -n "$sha" ]] || die "could not resolve remote sha for $old_branch"
+      git push "$ORIGIN" "$sha:refs/heads/$new_branch"
+    fi
+    git push "$ORIGIN" --delete "$old_branch"
+    printf "Renamed %s -> %s on %s (remote-only)\n" "$old_branch" "$new_branch" "$ORIGIN"
+  fi
+
+  git fetch "$ORIGIN" --prune >/dev/null 2>&1 || true
+}
+
+collect_archive_candidates() {
+  local current
+  current=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo "")
+
+  {
+    git for-each-ref --format='%(refname:short)' refs/heads/
+    git for-each-ref --format='%(refname:short)' "refs/remotes/$ORIGIN/" \
+      | sed -n "s#^$ORIGIN/##p"
+  } | awk '!seen[$0]++' | while IFS= read -r b; do
+    [[ -z "$b" ]] && continue
+    [[ "$b" == "HEAD" ]] && continue
+    [[ "$b" == "main" || "$b" == "master" ]] && continue
+    [[ "$b" == archive/* ]] && continue
+    [[ -n "$current" && "$b" == "$current" ]] && continue
+    printf '%s\n' "$b"
+  done
+}
+
+archive_all() {
+  local dry_run=0 force=0
+  for arg in "$@"; do
+    case "$arg" in
+      --dry-run) dry_run=1 ;;
+      --force)   force=1 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "unknown flag for --archive-all: $arg" ;;
+    esac
+  done
+  [[ $dry_run -eq 1 || $force -eq 1 ]] \
+    || die "--archive-all requires --dry-run or --force"
+  [[ $dry_run -eq 1 && $force -eq 1 ]] \
+    && die "--dry-run and --force are mutually exclusive"
+
+  local branches=()
+  while IFS= read -r b; do
+    branches+=("$b")
+  done < <(collect_archive_candidates)
+
+  if [[ ${#branches[@]} -eq 0 ]]; then
+    echo "No branches to archive."
+    return 0
+  fi
+
+  if [[ $dry_run -eq 1 ]]; then
+    printf "Would archive %d branch(es) on %s:\n" "${#branches[@]}" "$ORIGIN"
+    for b in "${branches[@]}"; do
+      printf "  %s -> archive/%s\n" "$b" "$b"
+    done
+    return 0
+  fi
+
+  local failed=0
+  for b in "${branches[@]}"; do
+    printf '== %s -> archive/%s ==\n' "$b" "$b"
+    if ! rename_one "$b" "archive/$b"; then
+      printf 'git-rename: failed to archive %s (continuing)\n' "$b" >&2
+      failed=$((failed + 1))
+    fi
+  done
+  [[ $failed -eq 0 ]] || die "$failed branch(es) failed to archive"
+}
+
+main() {
+  require_git_repo
+
+  if [[ $# -eq 1 ]] && [[ "$1" =~ ^(-h|--help)$ ]]; then
+    usage
+    exit 0
+  fi
+
+  [[ -n "$ORIGIN" ]] || die "no remote found (looked for 'gito' and 'origin')"
+
+  if [[ $# -ge 1 && "$1" == "--archive-all" ]]; then
+    shift
+    archive_all "$@"
+    return
+  fi
+
+  if [[ $# -ne 2 ]]; then
+    usage >&2
+    exit 1
+  fi
+
+  local old_branch new_branch
+  case "$1 $2" in
+    "--archive "*)
+      old_branch="$2"
+      new_branch="archive/$2"
+      ;;
+    *" --archive")
+      old_branch="$1"
+      new_branch="archive/$1"
+      ;;
+    *)
+      old_branch="$1"
+      new_branch="$2"
+      ;;
+  esac
+
+  rename_one "$old_branch" "$new_branch"
+}
+
+main "$@"
