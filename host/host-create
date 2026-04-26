@@ -132,6 +132,7 @@ host-allow-git $H &
 
 host-allow-openrouter $H &
 host-allow-openai $H &
+host-allow-claude $H &
 host-set-history $H &
 
 ssh $H 'ssh-keyscan -t ed25519 git.wkbl.dev >> ~/.ssh/known_hosts' &

@@ -17,6 +17,7 @@ Usage:
   git-rename <branch> --archive
   git-rename --archive <branch>
   git-rename --archive-all (--dry-run | --force)
+  git-rename --archive-merged (--dry-run | --force)
 
 Renames a branch locally and/or on remote `$ORIGIN`. If the branch exists only
 on the remote, performs a server-side rename (no local checkout needed).
@@ -24,11 +25,17 @@ on the remote, performs a server-side rename (no local checkout needed).
 --archive-all archives every branch other than main/master, the current branch,
 and branches already under archive/. Requires --dry-run or --force.
 
+--archive-merged archives only branches on $ORIGIN whose tip is reachable from
+$ORIGIN/main (or $ORIGIN/master), with the same exclusions. Requires --dry-run
+or --force.
+
 Examples:
   git-rename feature/login feature/auth-login
   git-rename feature/login --archive
   git-rename --archive-all --dry-run
   git-rename --archive-all --force
+  git-rename --archive-merged --dry-run
+  git-rename --archive-merged --force
 EOF
 }
 
@@ -120,33 +127,67 @@ collect_archive_candidates() {
   done
 }
 
-archive_all() {
+collect_merged_candidates() {
+  local target=""
+  if git show-ref --verify --quiet "refs/remotes/$ORIGIN/main"; then
+    target="$ORIGIN/main"
+  elif git show-ref --verify --quiet "refs/remotes/$ORIGIN/master"; then
+    target="$ORIGIN/master"
+  else
+    die "no $ORIGIN/main or $ORIGIN/master to check merged-ness against"
+  fi
+
+  local current
+  current=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo "")
+
+  git for-each-ref --merged="$target" --format='%(refname:short)' \
+      "refs/remotes/$ORIGIN/" \
+    | sed -n "s#^$ORIGIN/##p" \
+    | while IFS= read -r b; do
+        [[ -z "$b" ]] && continue
+        [[ "$b" == "HEAD" ]] && continue
+        [[ "$b" == "main" || "$b" == "master" ]] && continue
+        [[ "$b" == archive/* ]] && continue
+        [[ -n "$current" && "$b" == "$current" ]] && continue
+        printf '%s\n' "$b"
+      done
+}
+
+run_archive() {
+  local mode="$1"; shift
+  local label collector
+  case "$mode" in
+    all)    label="branch(es)"; collector=collect_archive_candidates ;;
+    merged) label="merged branch(es)"; collector=collect_merged_candidates ;;
+    *) die "internal: unknown archive mode: $mode" ;;
+  esac
+
   local dry_run=0 force=0
   for arg in "$@"; do
     case "$arg" in
       --dry-run) dry_run=1 ;;
       --force)   force=1 ;;
       -h|--help) usage; exit 0 ;;
-      *) die "unknown flag for --archive-all: $arg" ;;
+      *) die "unknown flag for --archive-$mode: $arg" ;;
     esac
   done
   [[ $dry_run -eq 1 || $force -eq 1 ]] \
-    || die "--archive-all requires --dry-run or --force"
+    || die "--archive-$mode requires --dry-run or --force"
   [[ $dry_run -eq 1 && $force -eq 1 ]] \
     && die "--dry-run and --force are mutually exclusive"
 
   local branches=()
   while IFS= read -r b; do
     branches+=("$b")
-  done < <(collect_archive_candidates)
+  done < <("$collector")
 
   if [[ ${#branches[@]} -eq 0 ]]; then
-    echo "No branches to archive."
+    printf "No %s to archive.\n" "$label"
     return 0
   fi
 
   if [[ $dry_run -eq 1 ]]; then
-    printf "Would archive %d branch(es) on %s:\n" "${#branches[@]}" "$ORIGIN"
+    printf "Would archive %d %s on %s:\n" "${#branches[@]}" "$label" "$ORIGIN"
     for b in "${branches[@]}"; do
       printf "  %s -> archive/%s\n" "$b" "$b"
     done
@@ -176,7 +217,13 @@ main() {
 
   if [[ $# -ge 1 && "$1" == "--archive-all" ]]; then
     shift
-    archive_all "$@"
+    run_archive all "$@"
+    return
+  fi
+
+  if [[ $# -ge 1 && "$1" == "--archive-merged" ]]; then
+    shift
+    run_archive merged "$@"
     return
   fi
 

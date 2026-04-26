@@ -1,0 +1,26 @@
+#!/bin/bash
+
+HOST="$1"
+
+if [ -z "$HOST" ]; then
+  echo "usage $0 <hostname>"
+  exit 1
+fi
+
+ssh $HOST mkdir -p .claude
+rsync -a $HOME/.claude/.credentials.json $HOST:.claude/.credentials.json
+
+# Strip any baked-in API key from the snapshot's ~/.claude.json so it doesn't
+# conflict with the OAuth credentials we just installed.
+ssh $HOST '
+  if [ -f ~/.claude.json ]; then
+    jq "del(.primaryApiKey, .customApiKeyResponses)" ~/.claude.json > ~/.claude.json.tmp \
+      && mv ~/.claude.json.tmp ~/.claude.json
+  fi
+'
+
+# Install the frontend-design plugin from the anthropics/claude-code marketplace.
+ssh $HOST '
+  claude plugin marketplace add anthropics/claude-code || true
+  claude plugin install frontend-design --scope user
+'
