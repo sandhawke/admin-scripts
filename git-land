@@ -21,3 +21,5 @@ git fetch gito "$1"
 git merge --ff-only gito/"$1" || git merge --no-edit gito/"$1" || { git merge --abort; exit 1; }
 git push gh
 git push gito
+
+git-branch-rename "$1" --archive

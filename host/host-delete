@@ -44,7 +44,8 @@ for H in "${HOSTS[@]}"; do
     doctl compute droplet delete "$H" --force
 
     DOMAIN=$H.wkbl.dev
-    porkbun-ip delete auth.$DOMAIN 
-    porkbun-ip delete conj.$DOMAIN 
+    porkbun-ip delete auth.$DOMAIN
+    porkbun-ip delete conj.$DOMAIN
     porkbun-ip delete $DOMAIN
+    porkbun-ip delete "*.$DOMAIN"
 done

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Prefer "gito" remote, fall back to "origin"
+# Default remote: prefer "gito", fall back to "origin". Override with --remote <name>.
 if git remote get-url gito >/dev/null 2>&1; then
   ORIGIN=gito
 elif git remote get-url origin >/dev/null 2>&1; then
@@ -13,21 +13,24 @@ fi
 usage() {
   cat <<'EOF'
 Usage:
-  git-rename <old-branch> <new-branch>
-  git-rename <branch> --archive
-  git-rename --archive <branch>
-  git-rename --archive-all (--dry-run | --force)
-  git-rename --archive-merged (--dry-run | --force)
+  git-rename [--remote <name>] <old-branch> <new-branch>
+  git-rename [--remote <name>] <branch> --archive
+  git-rename [--remote <name>] --archive <branch>
+  git-rename [--remote <name>] --archive-all (--dry-run | --force)
+  git-rename [--remote <name>] --archive-merged (--dry-run | --force)
 
-Renames a branch locally and/or on remote `$ORIGIN`. If the branch exists only
-on the remote, performs a server-side rename (no local checkout needed).
+Renames a branch locally and/or on the selected remote. If the branch exists
+only on the remote, performs a server-side rename (no local checkout needed).
+
+--remote <name> overrides the default remote (which prefers "gito", falling
+back to "origin"). Must appear before any other flags.
 
 --archive-all archives every branch other than main/master, the current branch,
 and branches already under archive/. Requires --dry-run or --force.
 
---archive-merged archives only branches on $ORIGIN whose tip is reachable from
-$ORIGIN/main (or $ORIGIN/master), with the same exclusions. Requires --dry-run
-or --force.
+--archive-merged archives only branches on the remote whose tip is reachable
+from <remote>/main (or <remote>/master), with the same exclusions. Requires
+--dry-run or --force.
 
 Examples:
   git-rename feature/login feature/auth-login
@@ -36,6 +39,7 @@ Examples:
   git-rename --archive-all --force
   git-rename --archive-merged --dry-run
   git-rename --archive-merged --force
+  git-rename --remote origin --archive-merged --dry-run
 EOF
 }
 
@@ -213,7 +217,14 @@ main() {
     exit 0
   fi
 
-  [[ -n "$ORIGIN" ]] || die "no remote found (looked for 'gito' and 'origin')"
+  if [[ $# -ge 2 && "$1" == "--remote" ]]; then
+    ORIGIN="$2"
+    git remote get-url "$ORIGIN" >/dev/null 2>&1 \
+      || die "remote not configured: $ORIGIN"
+    shift 2
+  fi
+
+  [[ -n "$ORIGIN" ]] || die "no remote found (looked for 'gito' and 'origin'); pass --remote <name>"
 
   if [[ $# -ge 1 && "$1" == "--archive-all" ]]; then
     shift

@@ -123,6 +123,7 @@ source ~/.secret-keys/porkbun.env
 # porkbun-ip set auth.$DOMAIN $IP
 porkbun-ip set conj.$DOMAIN $IP &
 porkbun-ip set $DOMAIN $IP &
+porkbun-ip set "*.$DOMAIN" $IP &
 
 while ! nc -z $IP 22; do sleep 1; done
 ssh-name $H $IP
